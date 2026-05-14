@@ -27,50 +27,26 @@ if [[ ! -f "${SOURCE_DATASET}" || ! -f "${TARGET_DATASET}" ]]; then
 fi
 
 if $GENERATE_DATA; then
-TIMES=$(python - <<'PY'
-import datetime as dt
-import json, random
-
-SEED = 12345
-N = 120
-
-start = dt.datetime(2021, 1, 1, 0, 0, 0)
-end   = dt.datetime(2021,12,31,23,0,0)  # inclusive
-
-total_hours = int((end - start).total_seconds() // 3600) + 1
-if N > total_hours:
-    raise ValueError(f"N={N} is larger than total_hours={total_hours}")
-
-rng = random.Random(SEED)
-idxs = rng.sample(range(total_hours), N)  # 중복 없이
-idxs.sort() 
-
-times = [(start + dt.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%S") for i in idxs]
-print(json.dumps(times))
-PY
-)
   CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
     -m rematch.generate --config-name="${CONFIG}" \
     ++generation.io.reg_ckpt_filename=$REG_PATH \
     ++generation.io.output_filename=$SOURCE_DATASET \
     ++generation.num_ensembles=1 \
     ++generation.inference_mode="regression"\
-    "generation.times=${TIMES}"
-    # ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019.nc\
-    # ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json\
-    # ++generation.load_all_times=True\
-    # ++generation.times=null\
-  CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 \
+    ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019.nc\
+    ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json\
+    ++generation.load_all_times=True\
+    ++generation.times=null
+  CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
     -m rematch.generate --config-name=$CONFIG \
     ++generation.io.reg_ckpt_filename=$REG_PATH \
     ++generation.io.output_filename=$TARGET_DATASET \
     ++generation.num_ensembles=1 \
     ++generation.inference_mode="regression"\
-    "generation.times=${TIMES}"
-    # ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_validation_2020.nc\
-    # ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_validation_2020_stats.json
-    # ++generation.load_all_times=True\
-    # ++generation.times=null\
+    ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_validation_2020.nc\
+    ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_validation_2020_stats.json\
+    ++generation.load_all_times=True\
+    ++generation.times=null
 
 fi
 if $RUN_PCA; then

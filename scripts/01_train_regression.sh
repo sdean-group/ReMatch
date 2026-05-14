@@ -17,6 +17,4 @@ echo "Running regression"
 CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
   -m rematch.train \
   --config-name="${CONFIG}" \
-  ++training.io.checkpoint_dir="${CHECKPOINTS_DIR}" \
-  ++training.hp.training_duration=3000 \
-  ++training.io.save_checkpoint_freq=3000
+  ++training.io.checkpoint_dir="${CHECKPOINTS_DIR}" 

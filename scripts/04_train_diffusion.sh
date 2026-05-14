@@ -21,9 +21,7 @@ if $FROM_OT; then
     -m rematch.train_preload_diffusion \
     --config-name="${CONFIG}" \
     ++training.io.checkpoint_dir="${CHECKPOINTS_DIR}" \
-    ++dataset.data_path="${PCA_OT_DIR}/reg_2018-2020_ot.nc" \
-    ++training.hp.training_duration=3000 \
-    ++training.io.save_checkpoint_freq=3000
+    ++dataset.data_path="${PCA_OT_DIR}/reg_2018-2020_ot.nc" 
 else
     echo "Running diffusion from regression model"
     REG_PATH=$(ls -1 "$CHECKPOINTS_DIR/checkpoints_regression"/CorrDiffRegressionUNet.0.*.mdlus \
