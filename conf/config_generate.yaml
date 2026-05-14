@@ -58,6 +58,7 @@ generation:
     # int, number of ensembles to generate per input
     seed_batch_size: 1
     # int, size of the batched inference
+    load_all_times: False
     times:
         - "2021-01-02T23:00:00"
         - "2021-02-02T23:00:00"

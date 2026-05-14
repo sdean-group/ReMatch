@@ -27,8 +27,10 @@ def get_dataset_and_sampler(dataset_cfg, times, has_lead_time=False, load_all_ti
     Get a dataset and sampler for generation.
     """
     (dataset, _) = init_dataset_from_config(dataset_cfg, batch_size=1)
-    if has_lead_time:
-        plot_times = times
+    
+    all_times = dataset.time()
+    if load_all_times:
+        plot_times = all_times
     else:
         plot_times = [
             convert_datetime_to_cftime(
@@ -36,9 +38,6 @@ def get_dataset_and_sampler(dataset_cfg, times, has_lead_time=False, load_all_ti
             )
             for time in times
         ]
-    all_times = dataset.time()
-    if load_all_times:
-        plot_times = all_times
     time_indices = [all_times.index(t) for t in plot_times]
     sampler = time_indices
 

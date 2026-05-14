@@ -105,8 +105,10 @@ def main(cfg: DictConfig) -> None:
             times = dataset.time()
     else:
         dataset, sampler = get_dataset_and_sampler(
-            dataset_cfg=dataset_cfg, times=times
+            dataset_cfg=dataset_cfg, times=times, load_all_times=cfg.generation.load_all_times
         )
+        if cfg.generation.load_all_times:
+            times = dataset.time()
         save_time=True
         save_data_index=False
     img_shape = dataset.image_shape()

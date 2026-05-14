@@ -8,8 +8,6 @@ cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
 CONFIG="${CONFIG:-config_generate.yaml}"
-GPUS="${GPUS:-0,1}"
-NPROC="${NPROC:-1}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/hrrr_era5/checkpoints/rematch_u}"
 SOURCE_DATASET="${SOURCE_DATASET:-./outputs/hrrr_era5/pca_ot/reg_trainset.nc}"
 TARGET_DATASET="${TARGET_DATASET:-./outputs/hrrr_era5/pca_ot/reg_calibrationset.nc}"
@@ -27,8 +25,7 @@ if [[ ! -f "${SOURCE_DATASET}" || ! -f "${TARGET_DATASET}" ]]; then
 fi
 
 if $GENERATE_DATA; then
-  CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
-    -m rematch.generate --config-name="${CONFIG}" \
+  python -m rematch.generate --config-name="${CONFIG}" \
     ++generation.io.reg_ckpt_filename=$REG_PATH \
     ++generation.io.output_filename=$SOURCE_DATASET \
     ++generation.num_ensembles=1 \
@@ -37,8 +34,8 @@ if $GENERATE_DATA; then
     ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json\
     ++generation.load_all_times=True\
     ++generation.times=null
-  CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
-    -m rematch.generate --config-name=$CONFIG \
+    # "generation.times=${TIMES}"    
+  python -m rematch.generate --config-name=$CONFIG \
     ++generation.io.reg_ckpt_filename=$REG_PATH \
     ++generation.io.output_filename=$TARGET_DATASET \
     ++generation.num_ensembles=1 \
