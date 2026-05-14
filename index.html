@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Sparse-to-Field Reconstruction via Stochastic Neural Dynamic Mode Decomposition">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mind the Residual Gap: Probabilistic Downscaling under Real-World Bias</title>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RQW73WXYW9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+  
+    gtag('config', 'G-RQW73WXYW9');
+  </script>
+  <script type="text/javascript" async 
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+  </script> 
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/icon.jpg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Mind the Residual Gap: Probabilistic Downscaling under Real-World Bias</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://yujin1007.github.io/">Yujin Kim</a>,</span>
+            <span class="author-block">
+              <a href="https://github.com/NIDHI2023">Nidhi Soma</a>,</span>
+            <span class="author-block">
+              <a href="https://sdean.website/">Sarah Dean</a>,</span>
+          </div>
+          <div class="is-size-4">
+            <font size="4.5">
+            Cornell University
+            </font>
+          </div>
+
+          <br>
+          <div class="column has-text-centered">
+            
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href="https://arxiv.org/pdf/2511.20612"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- <span class="link-block">
+                <a href="https://arxiv.org/abs/2502.20380"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span> -->
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/sdean-group/ReMatch/tree/main#"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h1 class="title is-4">\(\textbf{ReMatch} \) is a method to mitigate residual target misspecification in mean–residual probabilistic downscaling. It aligns training residuals to a test-time regime, improving both ensemble calibration and downscaling accuracy. </h1>
+        <br>
+        <img src="./static/images/first_pics.png" width="1500">
+        </div>
+    </div>
+    <!-- Dataset -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+          <p style="text-align: left;">
+            Probabilistic downscaling is the task of modeling the conditional distribution of high-resolution fields given coarse inputs, and is a central challenge to atmospheric science, climate modeling, and other multiscale physical systems. A widely used paradigm decomposes the problem into a deterministic mean predictor followed by a stochastic residual generator.
+            While effective in idealized settings, this mean-residual approach frequently produces biased and under-dispersive ensembles in real-world applications. Is this merely generic predictive uncertainty miscalibration? We show that the root cause is more fundamental: residual target misspecification, the residual distribution induced during training differs systematically from the one required at test time due to downscaling bias.
+            To close this gap, we introduce ReMatch (Residual Distribution Matching). ReMatch aligns the training residual distribution toward the test-time regime via optimal transport in a low-dimensional PCA space. This preserves the statistical benefits of the mean-residual framework while reducing the train-test mismatch in the residual targets seen by the stochastic generator. On a controlled synthetic benchmark with varying bias levels and a real-world HRRR-ERA5 wind field downscaling task, ReMatch substantially reduces under-dispersion, improves calibration (SSR and CRPS), and outperforms strong baselines, including the standard mean-residual model and its variants, as well as state-of-the-art super-resolution models. 
+          </p>
+      </div>
+    </div>
+    <br>
+
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-3">Training Phase</h2>
+        <p style="text-align: left;">
+          During training, Stochastic NODE–DMD learns a three-part model that reconstructs
+          spatiotemporal dynamics from sparse observations. First, the 
+          <i>Latent Encoder</i> takes subsampled measurements at time step <i>k</i> and produces a 
+          probabilistic latent state together with the continuous-time eigenvalues that govern temporal dynamics of the system.
+          Next, a <i>Stochastic Neural ODE</i> evolves this latent distribution forward to time <i>k+1</i>, capturing both 
+          nonlinear residual dynamics and uncertainty. Finally, the 
+          <i>Mode Extractor</i> learns basis spatial patterns as a continuous implicit representation, enabling 
+          reconstruction on arbitrary spatial coordinates.  
+          <br><br>
+          We train the model using only 10% of fixed datapoints from the ground-truth field. This structure yields an interpretable, uncertainty-aware
+          model that remains stable over long horizons and accurately captures the underlying spatiotemporal patterns.
+        </p>
+        <br>
+        <img src="./static/images/during_training.gif" width="1500">
+      </div>
+    </div>
+    
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-3">Inference Phase</h2>
+        <p style="text-align: left;">
+          At inference time, Stochastic NODE–DMD can generate field predictions 
+          at any spatial coordinate, including full-resolution grids unseen during training.
+          By evolving the latent state with the learned stochastic ODE, the model provides both a point estimate
+          and an uncertainty distribution that reflect noise, subsampling, and variability across realizations.
+          <br><br>
+          Reconstruction can be performed either in a single step or autoregressively over long horizons.
+          Importantly, only the initial state is needed to roll out future dynamics, enabling resolution-agnostic,
+          grid-free forecasting of complex systems.
+        </p>
+        <br>
+        <img src="./static/images/during_reconstruction.gif" width="1500">
+      </div>
+    </div>
+
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-3">Results</h2>
+    
+        <p style="text-align: left;">
+          Our experiments demonstrate that Stochastic NODE-DMD is able to reconstruct 
+          the spatiotemporal dynamics of the system from sparse observations compared 
+          to the baseline method.
+        </p>
+    
+        <br>
+    
+        <!-- Video 1 -->
+        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
+          <source src="./static/images/recon_synth.mp4" type="video/mp4">
+        </video>
+    
+        <!-- Video 2 -->
+        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
+          <source src="./static/images/recon_gray_scott.mp4" type="video/mp4">
+        </video>
+    
+        <!-- Video 3 -->
+        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
+          <source src="./static/images/recon_vorticity.mp4" type="video/mp4">
+        </video>
+    
+        <!-- Video 4 -->
+        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
+          <source src="./static/images/recon_cylinder.mp4" type="video/mp4">
+        </video>
+    
+        <br><br>
+    
+        <p style="text-align: left;">
+          We conduct a function-wise ablation study as follows:
+        </p>
+        
+        <br>
+        
+        <!-- 1) Recovery of true dynamics -->
+        <div style="text-align: left; margin-bottom: 30px;">
+          <p>
+            1) <b>Recovery of true dynamics</b> using a synthetic benchmark where 
+            ground-truth modes and eigenvalues are known, allowing direct comparison 
+            with the learned structure.
+          </p>
+        
+          <img src="./static/images/mode_analysis.png" width="900" style="margin-top: 10px;">
+        </div>
+        
+        <!-- 2) Stochastic dynamics modeling -->
+        <div style="text-align: left; margin-bottom: 30px;">
+          <p>
+            2) <b>Stochastic dynamics modeling</b> by training on multiple realizations 
+            of the same system and verifying that the model captures ensemble variability 
+            rather than collapsing to an averaged trajectory.
+          </p>
+        
+          <img src="./static/images/realizations.png" width="400" style="margin-top: 10px;">
+        </div>
+        
+        <!-- 3) Resolution robustness -->
+        <div style="text-align: left; margin-bottom: 30px;">
+          <p>
+            3) <b>Resolution robustness</b> by evaluating reconstruction quality across 
+            different spatial grid resolutions, showing that the model generalizes beyond 
+            the training discretization.
+          </p>
+        
+          <img src="./static/images/resolution.png" width="900" style="margin-top: 10px;">
+        </div>
+
+      </div>
+    </div>
+    
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+
+    <div class="columns is-centered has-text-centered">
+      <div class="column" id="Paper">
+        <h2 class="title is-3">Paper</h2>
+    <div class="paper-thumbnail">
+        <a href="https://arxiv.org/abs/2511.20612">
+            <img class="layered-paper-big" width="100%" src="./static/images/paper_preview.png" alt="Paper thumbnail"/>
+        </a>
+    </div>
+    <div class="paper-info">
+        <h3 class="title is-4" style="text-align: center;">BibTex</h3>
+        <pre style="overflow-x:hidden; text-wrap:wrap; white-space: pre-wrap;"><code>
+
+  @misc{kim2025sparsetofieldreconstructionstochasticneural,
+    title={Sparse-to-Field Reconstruction via Stochastic Neural Dynamic Mode Decomposition}, 
+    author={Yujin Kim and Sarah Dean},
+    year={2025},
+    eprint={2511.20612},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG},
+    url={https://arxiv.org/abs/2511.20612}, 
+  }
+        </code></pre> 
+    </div>
+    </div>
+</div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content has-text-centered">
+          <p>
+            <a href="https://github.com/sdean-group/Stochastic-NODE-DMD/tree/gh-pages">Fork</a> of a <a href="https://github.com/nerfies/nerfies.github.io">fork</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
