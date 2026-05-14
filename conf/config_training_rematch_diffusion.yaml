@@ -72,7 +72,6 @@ dataset:
 training:
     hp:
         training_duration: 8000000
-        total_batch_size: 64
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000

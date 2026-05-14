@@ -2,6 +2,8 @@
 set -e
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
+GPUS="${GPUS:-0,1}"
+NPROC="${NPROC:-1}"
 OUTPUT_DIR="./outputs/hrrr_era5"
 CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/rematch_u"
 PCA_OT_DIR="${OUTPUT_DIR}/pca_ot"
@@ -24,10 +26,10 @@ CONFIG_FILE_GEN="config_generate.yaml"
 # ''' multiple input levels -> trainset : 405, testset : 51, valset : 50'''
 # '''multiple input levels train splits -> trainset : 269, calibrationset : 135'''
 
-CHECKPOINTS_DIR=$CHECKPOINTS_DIR CONFIG=$CONFIG_FILE_REMATCH_REG bash scripts/01_train_regression.sh
-SOURCE_DATASET=$SOURCE_DATASET TARGET_DATASET=$TARGET_DATASET CHECKPOINTS_DIR=$CHECKPOINTS_DIR CONFIG=$CONFIG_FILE_GEN bash scripts/02_run_pca.sh
-SOURCE_DATASET=$SOURCE_DATASET TARGET_DATASET=$TARGET_DATASET PCA_OT_DIR=$PCA_OT_DIR bash scripts/03_run_ot.sh
-CHECKPOINTS_DIR=$CHECKPOINTS_DIR PCA_OT_DIR=$PCA_OT_DIR CONFIG=$CONFIG_FILE_REMATCH_DIFF bash scripts/04_train_diffusion.sh
+GPUS=$GPUS NPROC=$NPROC CHECKPOINTS_DIR=$CHECKPOINTS_DIR CONFIG=$CONFIG_FILE_REMATCH_REG bash scripts/01_train_regression.sh
+GPUS=$GPUS NPROC=$NPROC SOURCE_DATASET=$SOURCE_DATASET TARGET_DATASET=$TARGET_DATASET CHECKPOINTS_DIR=$CHECKPOINTS_DIR CONFIG=$CONFIG_FILE_GEN bash scripts/02_run_pca.sh
+GPUS=$GPUS NPROC=$NPROC SOURCE_DATASET=$SOURCE_DATASET TARGET_DATASET=$TARGET_DATASET PCA_OT_DIR=$PCA_OT_DIR bash scripts/03_run_ot.sh
+GPUS=$GPUS NPROC=$NPROC CHECKPOINTS_DIR=$CHECKPOINTS_DIR PCA_OT_DIR=$PCA_OT_DIR CONFIG=$CONFIG_FILE_REMATCH_DIFF bash scripts/04_train_diffusion.sh
 # echo "Running regression"
 # CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 --standalone \
 #   -m rematch.train --config-name=$CONFIG_FILE_REMATCH_REG \
