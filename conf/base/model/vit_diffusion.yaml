@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: vit_diffusion
+# Model type.
+hr_mean_conditioning: True
+# Recommended to use high-res conditioning for diffusion.
+
+# Standard model parameters.
+model_args:
+  gridtype: "sinusoidal"
+  # Type of positional grid to use: 'sinusoidal', 'learnable', 'linear'.
+  # Controls how positional information is encoded.
+  N_grid_channels: 4
+  # Number of channels for positional grid embeddings
+  embedding_type: "zero"
+  # Type of timestep embedding: 'positional' for DDPM++, 'fourier' for NCSN++,
+  # 'zero' for none
+ar:
+  enabled: true
+  input: "ar_residual"        # "gt_residual" | "ar_residual" | "none"
+  teacher_forcing_prob: 1.0   # 1.0이면 항상 GT residual 사용
+  detach_pred: true           # pred_fast를 입력으로 쓸 때 gradient 끊기
+  include_ar_channel_always: true  # 입력 채널 수 고정 (권장)
+  include_gt_residual_as_extra_cond: false  # AR과 별개로 GT residual을 cond에 추가로 넣고 싶다면
+  sigma_for_pred_fast: 0.5    # pred_fast 근사에 사용하는 sigma (모델 API에 맞춰 조정)
