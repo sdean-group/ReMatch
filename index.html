@@ -108,6 +108,10 @@
         <h1 class="title is-4">\(\textbf{ReMatch} \) is a method to mitigate residual target misspecification in mean–residual probabilistic downscaling. It aligns training residuals to a test-time regime, <em>improving both ensemble calibration and downscaling accuracy</em> compared to a variety of methods.</h1>
         <br>
         <img src="./static/images/methods.png" width="1500">
+        <br>
+        <video width="1500" controls autoplay loop muted>
+          <source src="./static/images/ensembles.mp4" type="video/mp4">
+        </video>
         </div>
     </div>
     <!-- Dataset -->
@@ -127,7 +131,7 @@
       <div class="column">
         <h2 class="title is-3">What is <em>residual target misspecification</em> for downscaling tasks?</h2>
         <p style="text-align: left;">
-          In the mean–residual pipeline, the residual is not an intrinsic stochastic component of the high-resolution field. Rather, it is an induced correction target defined relative to the upstream mean predictor. When the low- and high-resolution fields exhibit significant downscaling bias (as is typical in real-world cross-source or cross-resolution settings), the mean predictor overfits training-specific biases, which causes the residual distribution observed during training to become systematically different from the correction distribution required at test time. The severity increases directly with the strength of low-resolution (LR) – high-resolution (HR) bias.
+          In the mean–residual pipeline, the residual is not an intrinsic stochastic component of the high-resolution field. Rather, it is an induced correction target defined relative to the upstream mean predictor. This could include a mean-error magnitude gap, spatial structure, extreme behavior, etc. Generally, when the low- and high-resolution fields exhibit significant downscaling bias (as is typical in real-world cross-source or cross-resolution settings), the mean predictor overfits training-specific biases, which causes the residual distribution observed during training to become systematically different from the correction distribution required at test time. The severity increases directly with the strength of low-resolution (LR) – high-resolution (HR) bias.
         </p>
         <br>
         <p style="text-align: left;">
@@ -148,37 +152,18 @@
         <p style="text-align: left;">
           First, we create training, calibration, and test splits. ReMatch is trained on a calibration set with a frozen mean predictor that acts as a proxy test set. For our experiments, we used three stages:
           <br>
-          <i class="title is-6">Stage 1:</i> We train an upstream mean predictor using the pointwise regression objective to create a deterministic approximation of the target field. This creates residuals for each sample.
+          <i class="title is-6">Stage 1: </i> We train an upstream mean predictor using the pointwise regression objective to create a deterministic approximation of the target field. This creates residuals for each sample.
           <br>
         </p>
           <img src="./static/images/mean_eq.png" width="500">
   
         <p style="text-align: left;">
-          <i class="title is-6">Stage 2:</i> We use optimal transport to align the training residual distribution with the test-time residual distribution. We compute the transport cost by fitting separate PCA bases to the concatenated training and calibration residuals, and to the corresponding low-resolution inputs. We use the cost to reconstruct the transported residual with the transport weight from training sample to calibration sample and the calibration residual PCA representations.
+          <i class="title is-6">Stage 2: </i> We use optimal transport to align the training residual distribution with the test-time residual distribution. We compute the transport cost by fitting separate PCA bases to the concatenated training and calibration residuals, and to the corresponding low-resolution inputs. We use the cost to reconstruct the transported residual with the transport weight from training sample to calibration sample and the calibration residual PCA representations.
           <br>
-          <i class="title is-6">Stage 3:</i> We train a conditional residual model on both the train and calibration set, conditioned on the union of the transported training samples and the original calibration samples. This allows the stochastic residual generator to be trained on residual targets whose distribution is more closely matched to those encountered at inference.
+          <i class="title is-6">Stage 3: </i> We train a conditional residual model on both the train and calibration set, conditioned on the union of the transported training samples and the original calibration samples. This allows the stochastic residual generator to be trained on residual targets whose distribution is more closely matched to those encountered at inference.
           <br><br>
-          We note that ReMatch is modular. It can be used with any mean predictors -- such as UNet or SwinIR -- or stochastic residual generators.
+          We note that ReMatch is a generalizable, modular framework. It can be used with any mean predictors \(- \) such as UNet or SwinIR in our experiments \(- \) or any stochastic residual generators.
         </p>
-      </div>
-    </div>
-
-    
-    <div class="columns is-centered has-text-centered">
-      <div class="column">
-        <h2 class="title is-3"> Ensemble Comparisons </h2>
-        <p style="text-align: left;">
-          At inference time, Stochastic NODE–DMD can generate field predictions 
-          at any spatial coordinate, including full-resolution grids unseen during training.
-          By evolving the latent state with the learned stochastic ODE, the model provides both a point estimate
-          and an uncertainty distribution that reflect noise, subsampling, and variability across realizations.
-          <br><br>
-          Reconstruction can be performed either in a single step or autoregressively over long horizons.
-          Importantly, only the initial state is needed to roll out future dynamics, enabling resolution-agnostic,
-          grid-free forecasting of complex systems.
-        </p>
-        <br>
-        <img src="./static/images/during_reconstruction.gif" width="1500">
       </div>
     </div>
 
@@ -187,74 +172,16 @@
         <h2 class="title is-3">Results</h2>
     
         <p style="text-align: left;">
-          Our experiments demonstrate that Stochastic NODE-DMD is able to reconstruct 
-          the spatiotemporal dynamics of the system from sparse observations compared 
-          to the baseline method.
+          Our results suggest that in residual generative pipelines, calibration failures should not be viewed only as deficiencies of the stochastic sampler; they can originate from the target construction itself.
+          <br>
+          With our experiments, we demonstrate that ReMatch generally improves downscaling performance across accuracy, calibration, and visual perception metrics and across different types of mean predictors. Other methods that deviate from the mean-residual pipeline or try to reduce the capacity of the mean predictor generally show improved spread (or no spread for deterministic predictors) but decreased accuracy. Variants of CorrDiff such as classifier free guidance or uncertainty-aware conditioning also have similar tradeoffs.
+          <br>
+          <br>
+          Our method could help in downstream uncertainty-aware tasks, where better-calibrated spread can improve the usefulness of ensemble forecasts. We examine an example for a downstream trajectory planning task. This does not establish a direct advantage; rather, it illustrates that ReMatch's decreased bias and improved spread appears in the task as well.
         </p>
-    
         <br>
-    
-        <!-- Video 1 -->
-        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
-          <source src="./static/images/recon_synth.mp4" type="video/mp4">
-        </video>
-    
-        <!-- Video 2 -->
-        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
-          <source src="./static/images/recon_gray_scott.mp4" type="video/mp4">
-        </video>
-    
-        <!-- Video 3 -->
-        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
-          <source src="./static/images/recon_vorticity.mp4" type="video/mp4">
-        </video>
-    
-        <!-- Video 4 -->
-        <video width="1200" controls autoplay loop muted style="margin-bottom: 20px;">
-          <source src="./static/images/recon_cylinder.mp4" type="video/mp4">
-        </video>
-    
-        <br><br>
-    
-        <p style="text-align: left;">
-          We conduct a function-wise ablation study as follows:
-        </p>
-        
+        <img src="./static/images/trajectory.png" width="1000">
         <br>
-        
-        <!-- 1) Recovery of true dynamics -->
-        <div style="text-align: left; margin-bottom: 30px;">
-          <p>
-            1) <b>Recovery of true dynamics</b> using a synthetic benchmark where 
-            ground-truth modes and eigenvalues are known, allowing direct comparison 
-            with the learned structure.
-          </p>
-        
-          <img src="./static/images/mode_analysis.png" width="900" style="margin-top: 10px;">
-        </div>
-        
-        <!-- 2) Stochastic dynamics modeling -->
-        <div style="text-align: left; margin-bottom: 30px;">
-          <p>
-            2) <b>Stochastic dynamics modeling</b> by training on multiple realizations 
-            of the same system and verifying that the model captures ensemble variability 
-            rather than collapsing to an averaged trajectory.
-          </p>
-        
-          <img src="./static/images/realizations.png" width="400" style="margin-top: 10px;">
-        </div>
-        
-        <!-- 3) Resolution robustness -->
-        <div style="text-align: left; margin-bottom: 30px;">
-          <p>
-            3) <b>Resolution robustness</b> by evaluating reconstruction quality across 
-            different spatial grid resolutions, showing that the model generalizes beyond 
-            the training discretization.
-          </p>
-        
-          <img src="./static/images/resolution.png" width="900" style="margin-top: 10px;">
-        </div>
-
       </div>
     </div>
     
