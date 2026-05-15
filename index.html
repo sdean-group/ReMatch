@@ -52,7 +52,7 @@
             <span class="author-block">
               <a href="https://github.com/NIDHI2023">Nidhi Soma</a>,</span>
             <span class="author-block">
-              <a href="https://sdean.website/">Sarah Dean</a>,</span>
+              <a href="https://sdean.website/">Sarah Dean</a></span>
           </div>
           <div class="is-size-4">
             <font size="4.5">
@@ -109,9 +109,13 @@
         <br>
         <img src="./static/images/methods.png" width="1500">
         <br>
-        <video width="1500" controls autoplay loop muted>
-          <source src="./static/images/ensembles.mp4" type="video/mp4">
-        </video>
+        <br>
+        <img src="./static/images/ssr_plot.png" width="500">
+        <br>
+        <div class="ensemble_images" style="justify-content: center; display: flex; align-items: center; flex-wrap:wrap;">
+            <img src="./static/images/ensemble_corrdiff.png" width="1500" style="margin: 5px;">
+            <img src="./static/images/ensemble_rematch.png" width="1500" style="margin: 5px;">
+        </div>
         </div>
     </div>
     <!-- Dataset -->
@@ -133,6 +137,11 @@
         <p style="text-align: left;">
           In the mean–residual pipeline, the residual is not an intrinsic stochastic component of the high-resolution field. Rather, it is an induced correction target defined relative to the upstream mean predictor. This could include a mean-error magnitude gap, spatial structure, extreme behavior, etc. Generally, when the low- and high-resolution fields exhibit significant downscaling bias (as is typical in real-world cross-source or cross-resolution settings), the mean predictor overfits training-specific biases, which causes the residual distribution observed during training to become systematically different from the correction distribution required at test time. The severity increases directly with the strength of low-resolution (LR) – high-resolution (HR) bias.
         </p>
+        <br>
+        <p style="text-align: left;">
+          An example of realistic LR-HR mismatch is the gap between our upsampled ERA5 data and ground truth HRRR data. With the same atmospheric scene, the LR input and the corresponding HR target are substantially different.
+        </p>
+        <img src="./static/images/era_hrrr_mismatch.png" width="500">
         <br>
         <p style="text-align: left;">
            We conduct a toy experiment with synthetic flow data to demonstrate this phenomenon. We compare ReMatch with another SoTA mean-residual architecture, CorrDiff. 
@@ -174,10 +183,15 @@
         <p style="text-align: left;">
           Our results suggest that in residual generative pipelines, calibration failures should not be viewed only as deficiencies of the stochastic sampler; they can originate from the target construction itself.
           <br>
-          With our experiments, we demonstrate that ReMatch generally improves downscaling performance across accuracy, calibration, and visual perception metrics and across different types of mean predictors. Other methods that deviate from the mean-residual pipeline or try to reduce the capacity of the mean predictor generally show improved spread (or no spread for deterministic predictors) but decreased accuracy. Variants of CorrDiff such as classifier free guidance or uncertainty-aware conditioning also have similar tradeoffs.
+          <br>
+          <img src="./static/images/metric_results.png" width="1000">
+          <br>
+          With our experiments, we demonstrate that ReMatch improves downscaling performance across accuracy, calibration, and visual perception metrics and across different types of mean predictors. Other methods that deviate from the mean-residual pipeline (UNet, CDM, ConvFNO, SwinIR) or try to reduce the capacity of the mean predictor (\(CorrDiff_m \)) generally show improved spread (or no spread for deterministic predictors) but decreased accuracy. Variants of CorrDiff (CFG, uncertainty-aware conditioning) also have similar tradeoffs.
+          <br>
+          Though deterministic mean predictors are limited by their inability to quantify uncertainty for tasks that require calibrated ensembles, we observe that SwinIR is the strongest performing one. Combined with ReMatch and a residual predictor to add stochasticity, we see accuracy performance improve. This highlights that ReMatch actually can benefit from stronger deterministic mean-predictors while also adding well-calibrated spread, unlike other methods that suffered from accuracy–calibration tradeoffs.
           <br>
           <br>
-          Our method could help in downstream uncertainty-aware tasks, where better-calibrated spread can improve the usefulness of ensemble forecasts. We examine an example for a downstream trajectory planning task. This does not establish a direct advantage; rather, it illustrates that ReMatch's decreased bias and improved spread appears in the task as well.
+          Additionally, our method could help in downstream uncertainty-aware tasks, where better-calibrated spread can improve the usefulness of ensemble forecasts. We examine an example for a downstream trajectory planning task. This does not establish a direct advantage; rather, it illustrates that ReMatch's decreased bias and improved spread appears in the task as well.
         </p>
         <br>
         <img src="./static/images/trajectory.png" width="1000">
