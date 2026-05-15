@@ -105,9 +105,9 @@
   <div class="container is-max-desktop">
     <div class="columns is-centered has-text-centered">
       <div class="column">
-        <h1 class="title is-4">\(\textbf{ReMatch} \) is a method to mitigate residual target misspecification in mean–residual probabilistic downscaling. It aligns training residuals to a test-time regime, improving both ensemble calibration and downscaling accuracy. </h1>
+        <h1 class="title is-4">\(\textbf{ReMatch} \) is a method to mitigate residual target misspecification in mean–residual probabilistic downscaling. It aligns training residuals to a test-time regime, <em>improving both ensemble calibration and downscaling accuracy</em> compared to a variety of methods.</h1>
         <br>
-        <img src="./static/images/first_pics.png" width="1500">
+        <img src="./static/images/methods.png" width="1500">
         </div>
     </div>
     <!-- Dataset -->
@@ -125,28 +125,48 @@
 
     <div class="columns is-centered has-text-centered">
       <div class="column">
-        <h2 class="title is-3">Training Phase</h2>
+        <h2 class="title is-3">What is <em>residual target misspecification</em> for downscaling tasks?</h2>
         <p style="text-align: left;">
-          During training, Stochastic NODE–DMD learns a three-part model that reconstructs
-          spatiotemporal dynamics from sparse observations. First, the 
-          <i>Latent Encoder</i> takes subsampled measurements at time step <i>k</i> and produces a 
-          probabilistic latent state together with the continuous-time eigenvalues that govern temporal dynamics of the system.
-          Next, a <i>Stochastic Neural ODE</i> evolves this latent distribution forward to time <i>k+1</i>, capturing both 
-          nonlinear residual dynamics and uncertainty. Finally, the 
-          <i>Mode Extractor</i> learns basis spatial patterns as a continuous implicit representation, enabling 
-          reconstruction on arbitrary spatial coordinates.  
-          <br><br>
-          We train the model using only 10% of fixed datapoints from the ground-truth field. This structure yields an interpretable, uncertainty-aware
-          model that remains stable over long horizons and accurately captures the underlying spatiotemporal patterns.
+          In the mean–residual pipeline, the residual is not an intrinsic stochastic component of the high-resolution field. Rather, it is an induced correction target defined relative to the upstream mean predictor. When the low- and high-resolution fields exhibit significant downscaling bias (as is typical in real-world cross-source or cross-resolution settings), the mean predictor overfits training-specific biases, which causes the residual distribution observed during training to become systematically different from the correction distribution required at test time. The severity increases directly with the strength of low-resolution (LR) – high-resolution (HR) bias.
         </p>
         <br>
-        <img src="./static/images/during_training.gif" width="1500">
+        <p style="text-align: left;">
+           We conduct a toy experiment with synthetic flow data to demonstrate this phenomenon. We compare ReMatch with another SoTA mean-residual architecture, CorrDiff. 
+        </p>
+        <br>
+        <div class="bias_images" style="justify-content: center; display: flex; align-items: center; flex-wrap:wrap;">
+            <img src="./static/images/bias_plots.gif" width="500" style="margin: 5px;">
+            <img src="./static/images/bias_chart.png" width="400" style="margin: 5px;">
+        </div>
+        
       </div>
     </div>
+
+    <div class="columns is-centered has-text-centered">
+      <div class="column">
+        <h2 class="title is-3">ReMatch Construction</h2>
+        <p style="text-align: left;">
+          First, we create training, calibration, and test splits. ReMatch is trained on a calibration set with a frozen mean predictor that acts as a proxy test set. For our experiments, we used three stages:
+          <br>
+          <i class="title is-6">Stage 1:</i> We train an upstream mean predictor using the pointwise regression objective to create a deterministic approximation of the target field. This creates residuals for each sample.
+          <br>
+        </p>
+          <img src="./static/images/mean_eq.png" width="500">
+  
+        <p style="text-align: left;">
+          <i class="title is-6">Stage 2:</i> We use optimal transport to align the training residual distribution with the test-time residual distribution. We compute the transport cost by fitting separate PCA bases to the concatenated training and calibration residuals, and to the corresponding low-resolution inputs. We use the cost to reconstruct the transported residual with the transport weight from training sample to calibration sample and the calibration residual PCA representations.
+          <br>
+          <i class="title is-6">Stage 3:</i> We train a conditional residual model on both the train and calibration set, conditioned on the union of the transported training samples and the original calibration samples. This allows the stochastic residual generator to be trained on residual targets whose distribution is more closely matched to those encountered at inference.
+          <br><br>
+          We note that ReMatch is modular. It can be used with any mean predictors -- such as UNet or SwinIR -- or stochastic residual generators.
+        </p>
+      </div>
+    </div>
+
     
     <div class="columns is-centered has-text-centered">
       <div class="column">
-        <h2 class="title is-3">Inference Phase</h2>
+        <h2 class="title is-3"> Ensemble Comparisons </h2>
         <p style="text-align: left;">
           At inference time, Stochastic NODE–DMD can generate field predictions 
           at any spatial coordinate, including full-resolution grids unseen during training.
@@ -276,7 +296,7 @@
       <div class="column is-8">
         <div class="content has-text-centered">
           <p>
-            <a href="https://github.com/sdean-group/Stochastic-NODE-DMD/tree/gh-pages">Fork</a> of a <a href="https://github.com/nerfies/nerfies.github.io">fork</a>.
+            <a href="https://github.com/sdean-group/ReMatch/tree/gh-pages">Fork</a> of a <a href="https://github.com/nerfies/nerfies.github.io">fork</a>.
           </p>
         </div>
       </div>
