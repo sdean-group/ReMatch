@@ -186,7 +186,7 @@
           <br>
           <img src="./static/images/metric_results.png" width="1000">
           <br>
-          With our experiments, we demonstrate that ReMatch improves downscaling performance across accuracy, calibration, and visual perception metrics and across different types of mean predictors. Other methods that deviate from the mean-residual pipeline (UNet, CDM, ConvFNO, SwinIR) or try to reduce the capacity of the mean predictor (\(CorrDiff_m \)) generally show improved spread (or no spread for deterministic predictors) but decreased accuracy. Variants of CorrDiff (CFG, uncertainty-aware conditioning) also have similar tradeoffs.
+          With our experiments, we demonstrate that ReMatch improves downscaling performance across accuracy, calibration, and visual perception metrics and across different types of mean predictors. Other methods that deviate from the mean-residual pipeline (UNet, CDM, ConvFNO, SwinIR) or try to reduce the capacity of the mean predictor (CorrDiff\(_m \)) generally show improved spread (or no spread for deterministic predictors) but decreased accuracy. Variants of CorrDiff (CFG, uncertainty-aware conditioning) also have similar tradeoffs.
           <br>
           Though deterministic mean predictors are limited by their inability to quantify uncertainty for tasks that require calibrated ensembles, we observe that SwinIR is the strongest performing one. Combined with ReMatch and a residual predictor to add stochasticity, we see accuracy performance improve. This highlights that ReMatch actually can benefit from stronger deterministic mean-predictors while also adding well-calibrated spread, unlike other methods that suffered from accuracy–calibration tradeoffs.
           <br>
