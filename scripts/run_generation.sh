@@ -1,24 +1,45 @@
 #!/bin/bash
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 # '''times for particle trajectory analysis'''
+# TIMES=$(python - <<'PY'
+# import datetime as dt
+# import json
+
+# start = dt.datetime(2021, 6,2, 0, 0, 0)
+# end   = dt.datetime(2021,6,2,2,0,0)  # inclusive
+
+# total_hours = int((end - start).total_seconds() // 3600) + 1
+
+# times = [
+#     (start + dt.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%S")
+#     for i in range(total_hours)
+# ]
+
+# print(json.dumps(times))
+# PY
+# )
 TIMES=$(python - <<'PY'
 import datetime as dt
-import json
+import json, random
 
-start = dt.datetime(2021, 6,2, 0, 0, 0)
-end   = dt.datetime(2021,6,2,2,0,0)  # inclusive
+SEED = 12345
+N = 600
+
+start = dt.datetime(2021, 1, 1, 0, 0, 0)
+end   = dt.datetime(2021,12,31,23,0,0)  # inclusive
 
 total_hours = int((end - start).total_seconds() // 3600) + 1
+if N > total_hours:
+    raise ValueError(f"N={N} is larger than total_hours={total_hours}")
 
-times = [
-    (start + dt.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%S")
-    for i in range(total_hours)
-]
+rng = random.Random(SEED)
+idxs = rng.sample(range(total_hours), N)  # 중복 없이
+idxs.sort() 
 
+times = [(start + dt.timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%S") for i in idxs]
 print(json.dumps(times))
 PY
 )
-
 
 REGRESSION_BASELINE="/home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_regression/CorrDiffRegressionUNet.0.8000000.mdlus"
 DIFFUSION_BASELINE="/home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus"
@@ -52,20 +73,42 @@ CONFIG_600="config_generate_hrrr_mini_east_600_samples.yaml"
 CONFIG_12MONTHLY="config_generate_hrrr_mini_east_temporal.yaml"
 # SAVE_DIR="/data/shared_experiment/monthly_12samples"
 # TIMES='["2021-01-02T23:00:00","2021-02-02T23:00:00","2021-03-02T23:00:00","2021-04-02T23:00:00","2021-05-02T23:00:00","2021-06-02T23:00:00","2021-07-02T23:00:00","2021-08-02T23:00:00","2021-09-02T23:00:00","2021-10-02T23:00:00","2021-11-02T23:00:00","2021-12-02T23:00:00"]'
-SAVE_DIR="/data/shared_experiment/particle_traj/20210602_20210603_48H"
-
-EXECUTE="BASELINE" # "BASELINE" "OT_TOPM" "MAE" "GT_MAE" "Q5" "GT_Q5" "SWINIR" "SWINIR_OT"
+# SAVE_DIR="/data/shared_experiment/particle_traj/20210602_20210603_48H"
+SAVE_DIR="/data/rematch_s/hrrr_era5/generation"
+EXECUTE="BASELINE_SWINIR" # "BASELINE" "OT_TOPM" "MAE" "GT_MAE" "Q5" "GT_Q5" "SWINIR" "SWINIR_OT"
 # for EXECUTE in "CDM" "RDIT"; do
 
 if [ $EXECUTE == "BASELINE" ]; then
   echo "Running baseline corrdiff"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  cd "${REPO_ROOT}"
+
+  export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
+  REGRESSION_BASELINE="/home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_regression/CorrDiffRegressionUNet.0.8000000.mdlus"
+  DIFFUSION_BASELINE="/home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus"
   CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 \
     -m rematch.generate --config-name=$CONFIG_600 \
-    ++generation.io.output_filename=${SAVE_DIR}/test_simple_code.nc \
+    ++generation.io.output_filename=${SAVE_DIR}/600_samples.nc \
+    ++generation.io.reg_ckpt_filename=$REGRESSION_BASELINE \
+    ++generation.io.res_ckpt_filename=$DIFFUSION_BASELINE \
+    ++generation.num_ensembles=12 
+fi
+if [ $EXECUTE == "BASELINE_SWINIR" ]; then
+  echo "Running baseline swinir"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  cd "${REPO_ROOT}"
+  export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
+  REGRESSION_BASELINE="/home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_s/checkpoints_regression/swinir_step_00100000.pt"
+  DIFFUSION_BASELINE="/home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_s/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus"
+  CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 \
+    -m rematch.generate_swinir --config-name=config_generate_swinir \
+    ++generation.io.output_filename=${SAVE_DIR}/600_samples.nc \
     ++generation.io.reg_ckpt_filename=$REGRESSION_BASELINE \
     ++generation.io.res_ckpt_filename=$DIFFUSION_BASELINE \
     ++generation.num_ensembles=12 \
-    "generation.times=${TIMES}" 
+    "generation.times=${TIMES}"
 fi
 if [ $EXECUTE == "OT_REG" ]; then
   echo "Running optimal transport (no penalty regularization) + regression 2018-2019"

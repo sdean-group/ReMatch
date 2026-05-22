@@ -7,15 +7,12 @@ cd "${REPO_ROOT}"
 
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
-GPUS="${GPUS:-0,1}"
-NPROC="${NPROC:-1}"
 PCA_OT_DIR="${PCA_OT_DIR:-./outputs/hrrr_era5/pca_ot}"
 SOURCE_DATASET="${SOURCE_DATASET:-./outputs/hrrr_era5/pca_ot/reg_trainset.nc}"
 TARGET_DATASET="${TARGET_DATASET:-./outputs/hrrr_era5/pca_ot/reg_calibrationset.nc}"
 
 echo "Running optimal transport"
-CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
--m rematch.optimal_transport.optimal_transport \
+python -m rematch.optimal_transport.optimal_transport \
 --residual_npz_path ${PCA_OT_DIR}/pca_weights_residuals.npz \
 --condition_npz_path ${PCA_OT_DIR}/pca_weights_input.npz \
 --path_pca_model ${PCA_OT_DIR}/pca_model_residuals.npz \

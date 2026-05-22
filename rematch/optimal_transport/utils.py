@@ -1,4 +1,4 @@
-
+# ReMatch/rematch/optimal_transport/utils.py
 import torch
 import numpy as np
 import xarray as xr
@@ -178,21 +178,55 @@ def _array_to_dataset_like(
     return xr.Dataset(data_vars=data_vars, coords=coords)
 
 
+# def _make_encoding(ds: xr.Dataset, compress_level: int = 4):
+#     encoding = {}
+#     for var_name in ds.data_vars:
+#         var = ds[var_name]
+#         shape = var.shape
+#         # expected (time, y, x)
+#         if len(shape) == 3:
+#             T, H, W = shape
+#             encoding[var_name] = {
+#                 "zlib": True,
+#                 "complevel": compress_level,
+#                 "chunksizes": (min(T, 256), min(H, 64), min(W, 64)),
+#             }
+#         else:
+#             encoding[var_name] = {"zlib": True, "complevel": compress_level}
+#     return encoding
 def _make_encoding(ds: xr.Dataset, compress_level: int = 4):
     encoding = {}
+
     for var_name in ds.data_vars:
         var = ds[var_name]
-        shape = var.shape
-        # expected (time, y, x)
-        if len(shape) == 3:
-            T, H, W = shape
-            encoding[var_name] = {
-                "zlib": True,
-                "complevel": compress_level,
-                "chunksizes": (min(T, 256), min(H, 64), min(W, 64)),
-            }
-        else:
-            encoding[var_name] = {"zlib": True, "complevel": compress_level}
+
+        enc = {
+            "dtype": "float32" if np.issubdtype(var.dtype, np.floating) else var.dtype,
+            "zlib": True,
+            "complevel": compress_level,
+            "shuffle": True,
+        }
+
+        chunksizes = []
+        for dim in var.dims:
+            size = var.sizes[dim]
+
+            if dim == "ensemble":
+                chunksizes.append(1)
+            elif dim in ("channel", "variable"):
+                chunksizes.append(1)
+            elif dim == "time":
+                chunksizes.append(min(size, 24))
+            elif dim in ("y", "x"):
+                chunksizes.append(size)
+            else:
+                chunksizes.append(size)
+
+        if len(chunksizes) > 0:
+            enc["chunksizes"] = tuple(chunksizes)
+
+        encoding[var_name] = enc
+
     return encoding
 
 
@@ -212,6 +246,7 @@ def _save_grouped_nc(
         save_path,
         mode="w",
         engine="netcdf4",
+        format="NETCDF4",
         encoding=_make_encoding(root_ds, compress_level) if len(root_ds.data_vars) > 0 else None,
     )
 
@@ -221,6 +256,7 @@ def _save_grouped_nc(
         mode="a",
         group="truth",
         engine="netcdf4",
+        format="NETCDF4",
         encoding=_make_encoding(truth_ds, compress_level),
     )
     pred_ds.to_netcdf(
@@ -228,6 +264,7 @@ def _save_grouped_nc(
         mode="a",
         group="prediction",
         engine="netcdf4",
+        format="NETCDF4",
         encoding=_make_encoding(pred_ds, compress_level),
     )
     inp_ds.to_netcdf(
@@ -235,8 +272,10 @@ def _save_grouped_nc(
         mode="a",
         group="input",
         engine="netcdf4",
+        format="NETCDF4",
         encoding=_make_encoding(inp_ds, compress_level),
     )
+
 
 def save_ot_dataset_as_nc(
     source_nc_path: str,
@@ -257,7 +296,8 @@ def save_ot_dataset_as_nc(
 
     source_pred_ds = _maybe_squeeze_prediction(source_pred_ds)
 
-    source_gt_arr = np.array(ds_to_array(source_truth_ds))   # (C, T_x, H, W)
+    x_res_ot = np.asarray(x_res_ot, dtype=np.float32)
+    source_gt_arr = np.asarray(ds_to_array(source_truth_ds), dtype=np.float32)
 
     if source_gt_arr.shape != x_res_ot.shape:
         # raise ValueError(
@@ -266,7 +306,7 @@ def save_ot_dataset_as_nc(
         print(f"x_res_ot shape: {x_res_ot.shape}, source_gt_arr shape: {source_gt_arr.shape}")
         x_res_ot = x_res_ot.reshape(source_gt_arr.shape)
 
-    source_pred_new_arr = source_gt_arr - x_res_ot
+    source_pred_new_arr = (source_gt_arr - x_res_ot).astype(np.float32, copy=False)
     source_pred_new_ds = _array_to_dataset_like(
         source_pred_new_arr,
         ref_ds=source_truth_ds,

@@ -30,11 +30,17 @@ import netCDF4 as nc
 import math
 from physicsnemo.distributed import DistributedManager
 from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
+from physicsnemo.experimental.models.diffusion.preconditioning import (
+    tEDMPrecondSuperRes,
+)
+from physicsnemo.models.diffusion.patching import GridPatching2D
 from physicsnemo import Module
-from physicsnemo.models.diffusion.sampling import stochastic_sampler
+from physicsnemo.models.diffusion.sampling import (
+    deterministic_sampler,
+    stochastic_sampler,
+)
 from physicsnemo.models.diffusion.corrdiff_utils import (
     get_time_from_range,
-    regression_step,
     diffusion_step,
 )
 
@@ -45,6 +51,26 @@ from third_party.helpers.generate_helpers import (
     custom_save_images,
 )
 from third_party.datasets.dataset import register_dataset
+from rematch.train_swinir import build_swinir_from_cfg
+def load_model_checkpoint(checkpoint_path, model, device):
+    ckpt = torch.load(checkpoint_path, map_location=device)
+
+    if "model" in ckpt:
+        state_dict = ckpt["model"]
+    else:
+        state_dict = ckpt
+
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith("module."):
+            new_state_dict[k[len("module."):]] = v
+        else:
+            new_state_dict[k] = v
+
+    model.load_state_dict(new_state_dict, strict=True)
+
+    step = ckpt.get("step", None) if isinstance(ckpt, dict) else None
+    return step
 
 
 @hydra.main(version_base="1.2", config_path="../conf", config_name="config_generate")
@@ -114,7 +140,6 @@ def main(cfg: DictConfig) -> None:
     img_shape = dataset.image_shape()
     img_out_channels = len(dataset.output_channels())
 
-
     # Parse the inference mode
     if cfg.generation.inference_mode == "regression":
         logger0.info("ITS REGRESSION")
@@ -149,24 +174,26 @@ def main(cfg: DictConfig) -> None:
         net_res = None
 
     # load regression network, move to device, change precision
-    if load_net_reg:
-        reg_ckpt_filename = cfg.generation.io.reg_ckpt_filename
-        logger0.info(f'Loading network from "{reg_ckpt_filename}"...')
-        net_reg = Module.from_checkpoint(
-            to_absolute_path(reg_ckpt_filename),
-            override_args={
-                "use_apex_gn": getattr(cfg.generation.perf, "use_apex_gn", False)
-            },
-        )
-        net_reg.profile_mode = getattr(cfg.generation.perf, "profile_mode", False)
-        net_reg.use_fp16 = getattr(cfg.generation.perf, "use_fp16", False)
-        net_reg = net_reg.eval().to(device).to(memory_format=torch.channels_last)
-
-        # Disable AMP for inference (even if model is trained with AMP)
-        if hasattr(net_reg, "amp_mode"):
-            net_reg.amp_mode = False
-    else:
-        net_reg = None
+    
+    # class swinir_args:
+    #     pass
+    # swinir_args.in_chans = 14
+    # swinir_args.out_chans = 10
+    # swinir_args.img_size = (21,21)
+    # swinir_args.upscale = 8
+    # swinir_args.window_size = 7
+    # swinir_args.embed_dim = 180
+    # swinir_args.depths = [6,6,6,6,6,6]
+    # swinir_args.num_heads = [6,6,6,6,6,6]
+    # swinir_args.mlp_ratio = 2.0
+    # swinir_args.drop_path_rate = 0.0
+    # swinir_args.multi_step_sampler = True
+    # swinir_args.use_checkpoint = False
+    model_swinir = build_swinir_from_cfg(cfg).to(device)
+    # load_model_checkpoint("/home/nvidia/projects/corrdiff/sr_baselines/swinir_m/checkpoints/swinir_step_00180000.pt", model_swinir, device)
+    load_model_checkpoint(cfg.generation.io.reg_ckpt_filename, model_swinir, device)
+    print(f"Loaded SWINIR checkpoint from {cfg.generation.io.reg_ckpt_filename}")
+    model_swinir.eval()
 
     # Reset since we are using a different mode.
     if cfg.generation.perf.use_torch_compile:
@@ -174,20 +201,18 @@ def main(cfg: DictConfig) -> None:
         torch._dynamo.reset()
         if net_res:
             net_res = torch.compile(net_res)
-        if net_reg:
-            net_reg = torch.compile(net_reg)
-
-    # Partially instantiate the sampler based on the configs
     sampler_fn = partial(stochastic_sampler)
-    # Parse the distribution type
-
-
+    
+    
     # Main generation definition
     def generate_fn():
         with nvtx.annotate("generate_fn", color="green"):
             diffusion_step_kwargs = {}
-            # (1, C, H, W)
             img_lr = image_lr.to(memory_format=torch.channels_last)
+
+            img_lr = img_lr.expand(
+                cfg.generation.seed_batch_size, -1, -1, -1
+            ).to(memory_format=torch.channels_last)
             B, C, H, W = img_lr.shape
             # if C == 16:
             #     # remove two zero channels from the end of the tensor
@@ -195,28 +220,38 @@ def main(cfg: DictConfig) -> None:
             # else:
             #     # add two zero channels to the end of the tensor
             #     img_lr = torch.cat([img_lr, torch.zeros_like(img_lr[:, :2, :, :])], dim=1)
-            
-            if net_reg:
-                with nvtx.annotate("regression_model", color="yellow"):
-                    image_reg = regression_step(
-                        net=net_reg,
-                        img_lr=img_lr,
-                        latents_shape=(
-                            sum(map(len, rank_batches)),
-                            img_out_channels,
-                            img_shape[0],
-                            img_shape[1],
-                        ),  # (batch_size, C, H, W)
-                    )
-            else:
-                logger0.warning("Regression is None")
-                image_reg = None
+
+            # if net_reg:
+            #     with nvtx.annotate("regression_model", color="yellow"):
+            #         image_reg = regression_step(
+            #             net=net_reg,
+            #             img_lr=img_lr,
+            #             latents_shape=(
+            #                 sum(map(len, rank_batches)),
+            #                 img_out_channels,
+            #                 img_shape[0],
+            #                 img_shape[1],
+            #             ),  # (batch_size, C, H, W)
+            #             lead_time_label=lead_time_label,
+            #         )
+            # else:
+            #     logger0.warning("Regression is None")
+            #     image_reg = None
+            image_reg = model_swinir(image_lr_raw)
             if net_res:
                 if cfg.generation.hr_mean_conditioning:
                     mean_hr = image_reg[0:1]
                 else:
                     mean_hr = None
                 with nvtx.annotate("diffusion model", color="purple"):
+                    # print(f"img_lr shape: {img_lr.shape}")
+                    # print(f"img_shape: {img_shape}")
+                    # print(f"img_out_channels: {img_out_channels}")
+                    # print(f"mean_hr shape: {mean_hr.shape}")
+
+                    # print(f"img_lr last two channel : {img_lr[:, -4:-2:, :, :]}")
+                    # print(f"img_lr shape: {img_lr.shape}")
+                    # print(f"img_lr_for_res shape: {img_lr_res.shape}")
                     image_res = diffusion_step(
                         net=net_res,
                         sampler_fn=sampler_fn,
@@ -230,6 +265,7 @@ def main(cfg: DictConfig) -> None:
                         rank=dist.rank,
                         device=device,
                         mean_hr=mean_hr,
+                        lead_time_label=lead_time_label,
                         **diffusion_step_kwargs,
                     )
                     
@@ -295,8 +331,13 @@ def main(cfg: DictConfig) -> None:
                     logger0.info('In case where img out is none')
                     return None, image_res, image_reg
             else:
+                image_reg=image_reg.repeat(cfg.generation.num_ensembles, 1, 1, 1)
+                image_out = image_out.detach() if image_out is not None else None
+                image_res = image_res.detach() if image_res is not None else None
+                image_reg = image_reg.detach() if image_reg is not None else None
+
                 return image_out, image_res, image_reg
-        return
+
 
     # generate images
     output_path = getattr(cfg.generation.io, "output_filename", "corrdiff_output.nc")
@@ -366,7 +407,7 @@ def main(cfg: DictConfig) -> None:
                 start = end = DummyEvent()
 
             times = dataset.time()
-            for dataset_index, (image_tar, image_lr, *lead_time_label) in zip(
+            for dataset_index, (image_tar,image_lr_raw, image_lr, *lead_time_label) in zip(
                 sampler,
                 iter(data_loader),
             ):
@@ -377,11 +418,15 @@ def main(cfg: DictConfig) -> None:
                 if time_index == warmup_steps:
                     start.record()
 
-                # continue
                 image_lr = (
                     image_lr.to(device=device)
                     .to(torch.float32)
-                    .to(memory_format=torch.channels_last)
+                    # .to(memory_format=torch.channels_last)
+                )
+                image_lr_raw = (
+                    image_lr_raw.to(device=device)
+                    .to(torch.float32)
+                    # .to(memory_format=torch.channels_last)
                 )
                 image_tar = image_tar.to(device=device).to(torch.float32)
                 image_out, image_res, image_reg = generate_fn()

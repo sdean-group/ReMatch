@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+hydra:
+    job:
+          chdir: false
+          name: generate_swinir_hrrr_ear5
+    run:
+          dir: ./hydra/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, and generation
+defaults:
+
+    - dataset: hrrr_mini_raw
+    - generation: non_patched
+dataset:
+    type: hrrr_mini_raw
+    data_path: /data/corrdiff3d/hrrrmini_east_test_ble_temporal.nc
+    # Path to .nc data file
+    stats_path: /data/corrdiff3d/hrrrmini_east_test_ble_temporal_stats.json
+    # Path to json stats file
+    input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
+    output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
+
+# Generation parameters to specialize
+generation:
+    num_ensembles: 12
+    # int, number of ensembles to generate per input
+    seed_batch_size: 1
+    # int, size of the batched inference
+    load_all_times: False
+    times:
+        - "2021-01-02T23:00:00"
+        - "2021-02-02T23:00:00"
+        - "2021-03-02T23:00:00"
+        - "2021-04-02T23:00:00"
+        - "2021-05-02T23:00:00"
+        - "2021-06-02T23:00:00"
+        - "2021-07-02T23:00:00"
+        - "2021-08-02T23:00:00"
+        - "2021-09-02T23:00:00"
+        - "2021-10-02T23:00:00"
+        - "2021-11-02T23:00:00"
+        - "2021-12-02T23:00:00"
+
+    # List[str], time stamps in ISO 8601 format. Replace and list desired target
+    # time stamps.
+    # TRY THIS OUT WITH AN EARLIER CHECKPOINT TO SEE WHETHER IT ACC IMPROVED
+    io:
+        output_filename: ./outputs/hrrr_mini_east/ble_generation_files/corrdif_residual_2021_BLErditfix2allpressures_temporal_50samples.nc
+        res_ckpt_filename: /home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus
+        reg_ckpt_filename: /home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_regression/CorrDiffRegressionUNet.0.3008.mdlus
+# Parameters for wandb logging
+wandb:
+    mode: offline
+    # Configure whether to use wandb: "offline", "online", "disabled"
+
+swinir:
+    checkpoint_path: null
+    resume: null
+
+    model_args:
+        in_chans: 14
+        out_chans: 10
+        img_size: [21, 21]
+        upscale: 8
+        window_size: 7
+        embed_dim: 180
+        depths: [6, 6, 6, 6, 6, 6]
+        num_heads: [6, 6, 6, 6, 6, 6]
+        mlp_ratio: 2.0
+        drop_path_rate: 0.0
+        use_checkpoint: false
+        multi_step_sampler: true

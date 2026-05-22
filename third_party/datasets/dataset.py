@@ -25,11 +25,12 @@ from physicsnemo.models.diffusion.training_utils.utils import InfiniteSampler
 from physicsnemo.distributed import DistributedManager
 
 from third_party.datasets import base, hrrrmini, hrrrmini_ot_pre_calc, blastnet, blastnet_ot_pre_calc
-
+from third_party.datasets import hrrrmini_raw_lr
 # this maps all known dataset types to the corresponding init function
 known_datasets = {
     "hrrr_mini": hrrrmini.HRRRMiniDataset,
     "hrrr_mini_ot": hrrrmini_ot_pre_calc.HRRROTDataset,
+    "hrrr_mini_raw": hrrrmini_raw_lr.HRRRMiniRawLRDataset,
     "blastnet": blastnet.BLASTNetNCDataset,
     "blastnet_ot": blastnet_ot_pre_calc.BLASTNetOTDataset,
 }

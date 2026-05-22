@@ -7,7 +7,7 @@ cd "${REPO_ROOT}"
 
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
-CONFIG="${CONFIG:-config_training_rematch_diffusion.yaml}"
+CONFIG="${CONFIG:-config_training_rematchu_diffusion.yaml}"
 GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/hrrr_era5/checkpoints/rematch_u}"
