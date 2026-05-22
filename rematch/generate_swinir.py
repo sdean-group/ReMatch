@@ -173,24 +173,7 @@ def main(cfg: DictConfig) -> None:
     else:
         net_res = None
 
-    # load regression network, move to device, change precision
-    
-    # class swinir_args:
-    #     pass
-    # swinir_args.in_chans = 14
-    # swinir_args.out_chans = 10
-    # swinir_args.img_size = (21,21)
-    # swinir_args.upscale = 8
-    # swinir_args.window_size = 7
-    # swinir_args.embed_dim = 180
-    # swinir_args.depths = [6,6,6,6,6,6]
-    # swinir_args.num_heads = [6,6,6,6,6,6]
-    # swinir_args.mlp_ratio = 2.0
-    # swinir_args.drop_path_rate = 0.0
-    # swinir_args.multi_step_sampler = True
-    # swinir_args.use_checkpoint = False
     model_swinir = build_swinir_from_cfg(cfg).to(device)
-    # load_model_checkpoint("/home/nvidia/projects/corrdiff/sr_baselines/swinir_m/checkpoints/swinir_step_00180000.pt", model_swinir, device)
     load_model_checkpoint(cfg.generation.io.reg_ckpt_filename, model_swinir, device)
     print(f"Loaded SWINIR checkpoint from {cfg.generation.io.reg_ckpt_filename}")
     model_swinir.eval()
@@ -214,29 +197,6 @@ def main(cfg: DictConfig) -> None:
                 cfg.generation.seed_batch_size, -1, -1, -1
             ).to(memory_format=torch.channels_last)
             B, C, H, W = img_lr.shape
-            # if C == 16:
-            #     # remove two zero channels from the end of the tensor
-            #     img_lr_res = img_lr[:, :-2, :, :]
-            # else:
-            #     # add two zero channels to the end of the tensor
-            #     img_lr = torch.cat([img_lr, torch.zeros_like(img_lr[:, :2, :, :])], dim=1)
-
-            # if net_reg:
-            #     with nvtx.annotate("regression_model", color="yellow"):
-            #         image_reg = regression_step(
-            #             net=net_reg,
-            #             img_lr=img_lr,
-            #             latents_shape=(
-            #                 sum(map(len, rank_batches)),
-            #                 img_out_channels,
-            #                 img_shape[0],
-            #                 img_shape[1],
-            #             ),  # (batch_size, C, H, W)
-            #             lead_time_label=lead_time_label,
-            #         )
-            # else:
-            #     logger0.warning("Regression is None")
-            #     image_reg = None
             image_reg = model_swinir(image_lr_raw)
             if net_res:
                 if cfg.generation.hr_mean_conditioning:
@@ -244,21 +204,12 @@ def main(cfg: DictConfig) -> None:
                 else:
                     mean_hr = None
                 with nvtx.annotate("diffusion model", color="purple"):
-                    # print(f"img_lr shape: {img_lr.shape}")
-                    # print(f"img_shape: {img_shape}")
-                    # print(f"img_out_channels: {img_out_channels}")
-                    # print(f"mean_hr shape: {mean_hr.shape}")
-
-                    # print(f"img_lr last two channel : {img_lr[:, -4:-2:, :, :]}")
-                    # print(f"img_lr shape: {img_lr.shape}")
-                    # print(f"img_lr_for_res shape: {img_lr_res.shape}")
                     image_res = diffusion_step(
                         net=net_res,
                         sampler_fn=sampler_fn,
                         img_shape=img_shape,
                         img_out_channels=img_out_channels,
                         rank_batches=rank_batches,
-                        # img_lr=image_tar-mean_hr,
                         img_lr=img_lr.expand(
                             cfg.generation.seed_batch_size, -1, -1, -1
                         ).to(memory_format=torch.channels_last),

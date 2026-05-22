@@ -35,20 +35,12 @@ from physicsnemo.models.diffusion import (
     EDMPrecondSuperResolution,
 )
 from physicsnemo.distributed import DistributedManager
-# from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
-# from physicsnemo.models.diffusion.patching import RandomPatching2D
-# from physicsnemo.utils.logging.wandb import initialize_wandb
 from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo.utils import (
     load_checkpoint,
     save_checkpoint,
     get_checkpoint_dir,
 )
-# from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
-# from physicsnemo.experimental.models.diffusion.preconditioning import (
-#     tEDMPrecondSuperRes,
-# )
-
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
     set_patch_shape,
@@ -58,7 +50,6 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-# from losses.guidance_free_loss import GuidanceFreeResidualLoss
 from rematch.rematch_loss import ResidualLoss_preload_loss
 torch._dynamo.reset()
 # Increase the cache size limit
@@ -121,17 +112,7 @@ def main(cfg: DictConfig) -> None:
     if dist.rank == 0:
         writer = SummaryWriter(log_dir="tensorboard")
     logger = PythonLogger("main")  # General python logger
-    logger0 = RankZeroLoggingWrapper(logger, dist)  # Rank 0 logger
-    # initialize_wandb(
-    #     project="Modulus-Launch",
-    #     entity="Modulus",
-    #     name=f"CorrDiff-Training-{HydraConfig.get().job.name}",
-    #     group="CorrDiff-DDP-Group",
-    #     mode=cfg.wandb.mode,
-    #     config=OmegaConf.to_container(cfg),
-    #     results_dir=cfg.wandb.results_dir,
-    # )
-
+    logger0 = RankZeroLoggingWrapper(logger, dist) 
     # Resolve and parse configs
     OmegaConf.resolve(cfg)
     dataset_cfg = OmegaConf.to_container(cfg.dataset)  # TODO needs better handling
@@ -243,10 +224,6 @@ def main(cfg: DictConfig) -> None:
             gradient_as_bucket_view=True,
             static_graph=True,
         )
-    # if cfg.wandb.watch_model and dist.rank == 0:
-    #     wandb.watch(model)
-
-    # Load the model checkpoint if applicable
     try:
         load_checkpoint(path=checkpoint_dir, models=model)
     except Exception:
@@ -304,9 +281,6 @@ def main(cfg: DictConfig) -> None:
     except Exception:
         pass
 
-    ############################################################################
-    #                            MAIN TRAINING LOOP                            #
-    ############################################################################
 
     logger0.info(f"Training for {cfg.training.hp.training_duration} images...")
     done = False

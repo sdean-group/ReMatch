@@ -75,16 +75,11 @@ def main(cfg: DictConfig) -> None:
     if dist.world_size > 1:
         torch.distributed.barrier()
 
-    # Parse the inference input times
-    # if cfg.generation.times_range and cfg.generation.times:
-    #     raise ValueError("Either times_range or times must be provided, but not both")
     if cfg.generation.times_range:
         times = get_time_from_range(cfg.generation.times_range)
     if cfg.generation.times:
-        # print(f"cfg.generation.times given: {cfg.generation.times}")
         times = cfg.generation.times
     else:
-        # print(f"no cfg.generation.times given")
         times = None
 
     # Create dataset object
@@ -186,15 +181,8 @@ def main(cfg: DictConfig) -> None:
     def generate_fn():
         with nvtx.annotate("generate_fn", color="green"):
             diffusion_step_kwargs = {}
-            # (1, C, H, W)
             img_lr = image_lr.to(memory_format=torch.channels_last)
             B, C, H, W = img_lr.shape
-            # if C == 16:
-            #     # remove two zero channels from the end of the tensor
-            #     img_lr_res = img_lr[:, :-2, :, :]
-            # else:
-            #     # add two zero channels to the end of the tensor
-            #     img_lr = torch.cat([img_lr, torch.zeros_like(img_lr[:, :2, :, :])], dim=1)
             
             if net_reg:
                 with nvtx.annotate("regression_model", color="yellow"):
@@ -223,7 +211,6 @@ def main(cfg: DictConfig) -> None:
                         img_shape=img_shape,
                         img_out_channels=img_out_channels,
                         rank_batches=rank_batches,
-                        # img_lr=image_tar-mean_hr,
                         img_lr=img_lr.expand(
                             cfg.generation.seed_batch_size, -1, -1, -1
                         ).to(memory_format=torch.channels_last),

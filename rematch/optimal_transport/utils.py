@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from textwrap import wrap
 import os
+from matplotlib.patches import Patch
 
 def ds_to_array(ds: xr.Dataset, name: str = "variable") -> xr.DataArray:
     if len(ds.data_vars) == 0:
@@ -546,19 +547,8 @@ def plot_minmax(*xs):
     pair = np.concatenate([np.asarray(x).ravel() for x in xs])
     vmin, vmax = np.percentile(pair, [0, 100.0])
     return vmin, vmax
-# def plot_field(ax, C, title, vmin=None, vmax=None):
-#     C = np.asarray(C)
-#     H, W = C.shape
-#     xx = np.arange(W + 1)
-#     yy = np.arange(H + 1)
-#     im = ax.pcolormesh(xx, yy, C, shading="auto", vmin=vmin, vmax=vmax)
-#     ax.set_xlabel("x"); ax.set_ylabel("y")
-#     ax.set_title(title)
-#     return im
 
-from matplotlib.patches import Patch
-import matplotlib.pyplot as plt
-import os
+
 
 
 def plot_beta_histograms_by_channel(
@@ -965,11 +955,6 @@ def load_nc_data_ot(nc_path: str, max_time_idx: int = None, return_all: bool = F
 
     # print(f"max_time_idx: {max_time_idx}")
     print(f"Loaded {T} time steps from {nc_path}")
-    # print(f"gt shape:      {gt_np.shape}")       # (C, T, H, W)
-    # print(f"reg shape:     {reg_np.shape}")      # (C, T, H, W)
-    # print(f"gt_res shape:  {gt_res_np.shape}")   # (C, T, H, W)
-    # print(f"pred shape:    {pred_np.shape}")     # (S, C, T, H, W)
-    # print(f"res shape:     {res_np.shape}")      # (S, C, T, H, W)
 
     if return_all:
         inp_np = np.array(ds_to_array(inp))
@@ -980,10 +965,6 @@ def plot_field(ax, C, title, vmin=None, vmax=None, isDiff=False):
     C = np.asarray(C)
     use_latlon=False
     if use_latlon:
-        # im = ax.pcolormesh(lon, lat, C, shading="auto", vmin=vmin, vmax=vmax)
-        # ax.set_xlabel("lon"); ax.set_ylabel("lat")
-
-        # Hardcoding lats/lons for now - east region
         lon_max, lon_min = -75.20870000000002, -82.55009999999999
         lat_min, lat_max = 36.0795,41.8914
 
@@ -1039,14 +1020,6 @@ def plot_compare(ot_path: str, original_path: str, save_file: str, channel_names
     res_ot, reg_ot, gt_ot, inp_ot = load_nc_data_ot(ot_path, return_all=True)
     res_original, reg_original, gt_original, inp_original = load_nc_data_ot(original_path, return_all=True)
     C,T,H,W = gt_ot.shape
-    # print(f"shape res_ot: {res_ot.shape}")
-    # print(f"shape res_original: {res_original.shape}")
-    # print(f"shape reg_ot: {reg_ot.shape}")
-    # print(f"shape reg_original: {reg_original.shape}")
-    # print(f"shape gt_ot: {gt_ot.shape}")
-    # print(f"shape gt_original: {gt_original.shape}")
-    # print(f"shape inp_ot: {inp_ot.shape}")
-    # print(f"shape inp_original: {inp_original.shape}")
     for i in (idx):
         fig, axes = plt.subplots(8, 4, figsize=(12,24))
         for c_i,c in enumerate(channel_idx):
@@ -1077,8 +1050,6 @@ def plot_compare(ot_path: str, original_path: str, save_file: str, channel_names
         print(f"Saved {file_path}")
 
 def plot_ot_result(res_ot, res_original, save_file: str, channel_names, channel_idx=[0,2,4,6], idx =[123,666,8800,12000,17000]):
-    # res_ot, reg_ot, gt_ot, inp_ot = load_nc_data_ot(ot_path, return_all=True, max_time_idx=10)
-    # res_original, reg_original, gt_original, inp_original = load_nc_data_ot(original_path, return_all=True, max_time_idx=10)
     for i in idx:
         fig, axes = plt.subplots(2, 4, figsize=(10, 10))
         plot_field(axes[0,0], res_ot[channel_idx[0],i,:,:], vmin=np.min([(res_ot[channel_idx[0],i,:,:].min(), res_original[channel_idx[0],i,:,:].min())]), vmax=np.max([(res_ot[channel_idx[0],i,:,:].max(), res_original[channel_idx[0],i,:,:].max())]), title=f"OT residual {channel_names[channel_idx[0]]},0")

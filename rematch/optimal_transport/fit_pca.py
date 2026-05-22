@@ -752,10 +752,7 @@ def main():
         gt_res = inp
         gt_res_train = inp_train
         gt_res_val = inp_val
-    # plot_pca_validation(gt_res_train, gt_res_train, inp_train, title="pca_sanity_check", save_path=f"./plots/sanity_check/source_{args.n_modes}", c=0, plot_idx = [0, 10, 20, 30, 40, 50])
-    # print(f"saved sanity check plot to ./plots/sanity_check/source_{args.n_modes}")
-    # exit(0)
-
+    
     pca_model = fit_truncated_pca_per_channel(
         gt_res,
         n_components=args.n_modes,
@@ -792,11 +789,6 @@ def main():
     mode_mask = dataset["mode_mask"]           # (C, Kmax)
     n_modes_per_channel = dataset["n_modes_per_channel"]
     
-    # print("gt_weights shape:", gt_weights.shape)
-    # print("pred_weights shape:", pred_weights.shape)
-    # print("mode_mask shape:", mode_mask.shape)
-    # print("n_modes_per_channel:", n_modes_per_channel)
-
     save_weight_pair_dataset2(
         args.path_weight_pairs,
         gt_weights_source=gt_weights_source,
@@ -804,39 +796,5 @@ def main():
         mode_mask=mode_mask,
         n_modes_per_channel=n_modes_per_channel,
     )
-    reconstructed_train = project_weights_to_pixel_space(gt_weights_source, model, n_modes_per_channel)
-    reconstructed_val = project_weights_to_pixel_space(gt_weights_target, model, n_modes_per_channel)
-    
-    
-    # plot_pca_validation(gt_res_train, gt_res_train, reconstructed_train, title="pca_sanity_check", save_path=f"./plots/sanity_check/source_{args.n_modes}", c=0, plot_idx = [0, 10, 20, 30, 40, 50])
-    # plot_pca_validation(gt_res_val, gt_res_val, reconstructed_val, title="pca_sanity_check", save_path=f"./plots/sanity_check/target_{args.n_modes}", c=0, plot_idx = [0, 10, 20, 30, 40, 50])
 if __name__ == "__main__":
     main()
-    '''
-    # # tiny (10, 5)
-    # python fit_pca.py --training_nc /data/experiment_outputs/calibration_purpose/regression_tiny_source_samples_2018-2019.nc --validation_nc /data/experiment_outputs/calibration_purpose/regression_tiny_target_samples_2020.nc --path_pca_model ./pca/pca_tiny_model_5.npz --path_weight_pairs /data/experiment_outputs/calibration_purpose/pca_tiny_weights_2018-2019_and_2020.npz --n_modes 5
-    # python fit_pca.py --training_nc /data/experiment_outputs/calibration_purpose/regression_tiny_source_samples_2018-2019.nc --validation_nc /data/experiment_outputs/calibration_purpose/regression_tiny_target_samples_2020.nc --path_pca_model ./pca/pca_tiny_lr_model_3.npz --path_weight_pairs /data/experiment_outputs/calibration_purpose/pca_tiny_weights_lr_2018-2019_and_2020.npz --n_modes 3 --is_lr True
-    # # mini (300, 150)
-    # python fit_pca.py --training_nc /data/experiment_outputs/calibration_purpose/regression_mini_source_samples_2018-2019.nc --validation_nc /data/experiment_outputs/calibration_purpose/regression_mini_target_samples_2020.nc --path_pca_model ./pca/pca_mini_model_85.npz --path_weight_pairs /data/experiment_outputs/calibration_purpose/pca_mini_weights_2018-2019_and_2020.npz --n_modes 85
-    # python fit_pca.py --training_nc /data/experiment_outputs/calibration_purpose/regression_mini_source_samples_2018-2019.nc --validation_nc /data/experiment_outputs/calibration_purpose/regression_mini_target_samples_2020.nc --path_pca_model ./pca/pca_mini_lr_model_20.npz --path_weight_pairs /data/experiment_outputs/calibration_purpose/pca_mini_weights_lr_2018-2019_and_2020.npz --n_modes 20 --is_lr True
-    # # all samples  
-    # python fit_pca.py --path_pca_model ./pca/pca_all_samples_lr_mode_30.npz --path_weight_pairs /data/experiment_outputs/calibration_purpose/pca_mini_weights_lr_2018-2019_and_2020.npz --n_modes 30 --is_lr True
-    
-    # blastnet dataset (270, 136), this dataset many numbers of dominant modes; I assume it's because the dataset mixes many different PDEs. but it's fine . 
-    # level=0
-    # python fit_pca.py\
-    #     --training_nc /data/experiment_outputs/calibration_purpose/blastnet/split_train_input_level${level}_regression_only.nc\
-    #     --validation_nc /data/experiment_outputs/calibration_purpose/blastnet/split_calibration_input_level${level}_regression_only.nc\
-    #     --path_pca_model ./pca/pca_blastnet_model_200.npz\
-    #     --path_weight_pairs /data/experiment_outputs/calibration_purpose/blastnet/pca_weights_level${level}.npz\
-    #     --n_modes 200\
-    #     --mean_center False
-    # python fit_pca.py\
-    #     --training_nc /data/experiment_outputs/calibration_purpose/blastnet/split_train_input_level${level}_regression_only.nc\
-    #     --validation_nc /data/experiment_outputs/calibration_purpose/blastnet/split_calibration_input_level${level}_regression_only.nc\
-    #     --path_pca_model ./pca/pca_blastnet_lr_model_70.npz\
-    #     --path_weight_pairs /data/experiment_outputs/calibration_purpose/blastnet/pca_lr_weights_level${level}.npz\
-    #     --n_modes 70\
-    #     --mean_center False\
-    #     --is_lr True
-    '''

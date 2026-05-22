@@ -199,28 +199,6 @@ def flatten_condition_features(
 
     return z1, z2, {"mu": mu.astype(np.float32), "std": std.astype(np.float32)}
 
-
-# def get_channel_weights(
-#     weights_source: np.ndarray,   # (T1, C, Kmax)
-#     weights_target: np.ndarray,   # (T2, C, Kmax)
-#     channel: int,
-#     n_modes_per_channel: np.ndarray,
-#     normalize_from_target: bool = True,
-#     eps: float = 1e-6,
-# ):
-#     kc = int(n_modes_per_channel[channel])
-#     w1c = weights_source[:, channel, :kc].astype(np.float32)
-#     w2c = weights_target[:, channel, :kc].astype(np.float32)
-
-#     ref = w2c if normalize_from_target else np.concatenate([w1c, w2c], axis=0)
-#     mu = ref.mean(axis=0, keepdims=True)
-#     std = ref.std(axis=0, keepdims=True)
-#     std = np.maximum(std, eps)
-
-#     w1c = (w1c - mu) / std
-#     w2c = (w2c - mu) / std
-
-#     return w1c, w2c, {"mu": mu.astype(np.float32), "std": std.astype(np.float32), "Kc": kc}
 def get_channel_weights(
     weights_source,
     weights_target,
@@ -261,68 +239,6 @@ def build_augmented_features(
     f2 = np.concatenate([a * w2c, l * z2], axis=1).astype(np.float32)
     return f1, f2
 
-
-# ============================================================
-# Exact top-k by blockwise GPU distance
-# ============================================================
-# def blockwise_topk_sqdist(
-#     X: np.ndarray,
-#     Y: np.ndarray,
-#     k: int = 128,
-#     x_block: int = 512,
-#     y_block: int = 2048,
-#     device: str = "cuda",
-# ):
-#     N, D = X.shape
-#     M, D2 = Y.shape
-#     assert D == D2
-#     assert k <= M
-
-#     dev = torch.device(device if (device == "cpu" or torch.cuda.is_available()) else "cpu")
-
-#     Y_t = torch.from_numpy(Y).to(dev, non_blocking=True)
-#     y_norm = (Y_t * Y_t).sum(dim=1)
-
-#     knn_idx_all = np.empty((N, k), dtype=np.int32)
-#     knn_dist_all = np.empty((N, k), dtype=np.float32)
-
-#     for i0 in range(0, N, x_block):
-#         i1 = min(i0 + x_block, N)
-#         X_blk = torch.from_numpy(X[i0:i1]).to(dev, non_blocking=True)
-#         x_norm = (X_blk * X_blk).sum(dim=1, keepdim=True)
-
-#         best_dist = None
-#         best_idx = None
-
-#         for j0 in range(0, M, y_block):
-#             j1 = min(j0 + y_block, M)
-#             Y_blk = Y_t[j0:j1]
-
-#             dist = x_norm + y_norm[j0:j1].unsqueeze(0) - 2.0 * (X_blk @ Y_blk.T)
-#             dist = torch.clamp(dist, min=0.0)
-#             dist = dist / X.shape[1]   # feature dimension D로 나눔
-
-#             d_part, i_part = torch.topk(dist, k=min(k, dist.shape[1]), dim=1, largest=False)
-#             i_part = i_part + j0
-
-#             if best_dist is None:
-#                 best_dist = d_part
-#                 best_idx = i_part
-#             else:
-#                 cat_dist = torch.cat([best_dist, d_part], dim=1)
-#                 cat_idx = torch.cat([best_idx, i_part], dim=1)
-#                 d_new, pos = torch.topk(cat_dist, k=k, dim=1, largest=False)
-#                 i_new = torch.gather(cat_idx, 1, pos)
-#                 best_dist, best_idx = d_new, i_new
-
-#         knn_idx_all[i0:i1] = best_idx.cpu().numpy().astype(np.int32)
-#         knn_dist_all[i0:i1] = best_dist.cpu().numpy().astype(np.float32)
-
-#         del X_blk, x_norm, best_dist, best_idx
-#         if dev.type == "cuda":
-#             torch.cuda.empty_cache()
-
-#     return knn_idx_all, knn_dist_all
 def blockwise_topk_sqdist(
     X: np.ndarray,
     Y: np.ndarray,
@@ -518,11 +434,6 @@ def solve_one_channel_sparse_conditional_ot(
         tol=sinkhorn_tol,
     )
 
-    # transported_weights = barycentric_from_sparse_plan(
-    #     plan_idx=knn_idx,
-    #     plan_vals=plan_vals,
-    #     target_weights=w2_raw,   # raw coeff로 복원
-    # )
     if knn_k == 1:
         transported_weights = w2_raw[knn_idx[:, 0]]
     else:
@@ -697,85 +608,3 @@ def run_channelwise_sparse_conditional_ot_multigpu(
         json.dump(meta, f, indent=2)
 
     return transported_all, x_res_ot
-
-if __name__ == "__main__":
-    # residual_npz_path = "/data/experiment_outputs/calibration_purpose/pca_weights_2018-2019_and_2020.npz"
-    # condition_npz_path = "/data/experiment_outputs/calibration_purpose/pca_weights_lr_2018-2019_and_2020.npz"
-    # path_pca_model = "./pca/pca_all_samples_mode_100.npz"
-    # source_nc_path = "/data/experiment_outputs/calibration_purpose/regression_2018-2019_all_samples_trained_on_2018-2019.nc"
-    # target_nc_path = "/data/experiment_outputs/calibration_purpose/regression_2020_all_samples_trained_on_2018-2019.nc"
-    # knn_k = 3 
-
-    # residual_npz_path = "/data/experiment_outputs/calibration_purpose/pca_mini_weights_2018-2019_and_2020.npz"
-    # condition_npz_path = "/data/experiment_outputs/calibration_purpose/pca_mini_weights_lr_2018-2019_and_2020.npz"
-    # path_pca_model = "./pca/pca_mini_model_85.npz"
-    # target_nc_path = "/data/experiment_outputs/calibration_purpose/regression_mini_target_samples_2020.nc"
-    # source_nc_path = "/data/experiment_outputs/calibration_purpose/regression_mini_source_samples_2018-2019.nc"
-    # knn_k = 3 
-    # save_dir = "/data/experiment_outputs/calibration_purpose/mini_optimal_transport"
-
-
-    
-    
-    # default setting
-    # alpha = 1.0
-    # lambda_cond = 0.5
-    # reg = 1.0
-    # reg_m=5.0
-
-    alpha = 1.
-    lambda_cond = 1.
-    reg = 0.1
-    reg_m=5.0
-
-    save_dir = f"/data/experiment_outputs/calibration_purpose/optimal_transport/knn{knn_k}_alpha{alpha}_lambda{lambda_cond}_reg{reg}_reg_m{reg_m}"
-    final_nc_path = os.path.join(save_dir, "reg_2018-2019_ot.nc")
-    final_all_nc_path = os.path.join(save_dir, "reg_2018-2020_ot.nc")
-    x_lr_full,x_lr, x_res_source, x_gt = load_training_data(source_nc_path)
-    
-    # pca_model[channel] = {"mean": (H,W), "components": (Kmax,H,W)}
-    pca_model= load_pca_model(path_pca_model)
-    # pca_model = convert_loaded_pca_model_for_ot(pca_model_loaded)
-    channel_names = [
-        "50u", "50v", "75u", "75v", "100u", "100v", "125u", "125v", "150u", "150v"
-    ]
-    transported_all, x_res_ot = run_channelwise_sparse_conditional_ot_multigpu(
-        residual_npz_path=residual_npz_path,
-        condition_npz_path=condition_npz_path,
-        pca_model=pca_model,
-        x_lr=x_lr,
-        x_lr_full=x_lr_full,
-        x_gt=x_gt,
-        save_dir=save_dir,
-        final_nc_path=final_nc_path,
-        channel_names=channel_names,
-        alpha=alpha,
-        lambda_cond=lambda_cond,
-        knn_k=knn_k,
-        reg=reg,
-        reg_m=reg_m,
-        sinkhorn_iter=300,
-        sinkhorn_tol=1e-6,
-        gpu_ids=(0, 1, 2, 3),
-        x_block=512,
-        y_block=2048,
-        save_sparse_plan=True,
-    )
-
-    save_ot_dataset_as_nc(
-        source_nc_path=source_nc_path,
-        target_nc_path=target_nc_path,
-        save_ot_reg_path=final_nc_path,
-        save_ot_all_reg_path=final_all_nc_path,
-        x_res_ot=x_res_ot,
-        channel_names=channel_names,
-        compress_level=4,
-    )
-
-    # dist_source = compute_pairwise_norm_distribution_sampled(x_res, num_pairs=100000, seed=0)
-    # # print(f"GT residual : {gt_res_1}")
-    # dist_source_ot = compute_pairwise_norm_distribution_sampled(res_2, num_pairs=100000, seed=1)
-    # dist_target = compute_pairwise_norm_distribution_sampled(res_3, num_pairs=100000, seed=2)
-    from plot_ot_result import plot_ot_result
-    plot_image_path = f"./plots/swinlr_hrrr/mini_knn{knn_k}_alpha{alpha}_lambda{lambda_cond}_reg{reg}_reg_m{reg_m}.png"
-    plot_ot_result(ot_path=final_nc_path, original_path=source_nc_path, save_file=plot_image_path, channel_names=channel_names)

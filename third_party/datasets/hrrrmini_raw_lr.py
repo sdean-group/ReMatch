@@ -26,20 +26,11 @@ class HRRRMiniRawLRDataset(HRRRMiniDataset):
         """Return the data sample (output, input) at index idx."""
         raw = self.input[idx].copy()        
         x = self.upsample(raw)
-        # zeros = np.zeros(
-        #     2, x.shape[1], x.shape[2],
-        #     device=x.device,
-        #     dtype=x.dtype,
-        # )
         zeros = np.zeros(
             (2, x.shape[-2], x.shape[-1]),
             dtype=x.dtype,
         )
 
-        
-        # x = torch.cat([x, zeros], dim=1)  # add invariant channels 
-    
-        
         y = self.output[idx]
 
         x = np.concatenate([x, zeros], axis=0)

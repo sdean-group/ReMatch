@@ -34,11 +34,6 @@ class HRRROTDataset(DownscalingDataset):
         invariant_variables: Union[List[str], None] = ("elev_mean", "lsm_mean"),
         return_truth_prediction: bool = False,
     ):
-        # self.data_path = "/data/experiment_outputs/calibration_purpose/mini_optimal_transport/reg_2018-2020_ot.nc"
-        # self.data_path = "/data/experiment_outputs/calibration_purpose/optimal_transport/knn3_alpha1.0_lambda1.0_reg0.1_reg_m5.0/reg_2018-2020_ot.nc"
-        # self.data_path="/data/experiment_outputs/calibration_purpose/optimal_transport/knn50_topm3_alpha2.0_lambda0.7_reg0.05_regm5.0_ueta0.12/reg_2018-2020_ot.nc"
-        # self.data_path="/data/experiment_outputs/calibration_purpose/optimal_transport_balanced_map/knn3_alpha1.0_lambda1.0_reg0.15/reg_2018-2020_ot.nc"
-        # self.data_path="/data/experiment_outputs/calibration_purpose/optimal_transport_top_m_regulation/knn32_topm3_alpha1.0_lambda3.0_reg0.1_peta0.75_pbeta1.25_candcap18_finalcap12/reg_2018-2020_ot.nc"
         self.data_path=data_path
         self.return_truth_prediction = return_truth_prediction
 
@@ -185,8 +180,3 @@ def _load_stats(stats, variables, group):
     )
     return mean, std
 
-if __name__ == "__main__":
-    data_path = "/data/experiment_outputs/calibration_purpose/optimal_transport/reg_2018-2019_ot.nc"
-    stats_path = "/data/corrdiff3d/hrrrmini_east_train_ble_temporal_stats.json"
-    dataset = HRRROTDataset(data_path, stats_path)
-    print(dataset[0])

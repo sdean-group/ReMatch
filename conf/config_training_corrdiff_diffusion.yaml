@@ -27,37 +27,12 @@ hydra:
 defaults:
 
     - dataset: hrrr_mini 
-    # The dataset type for training.
-    # Accepted values:
-    #   `gefs_hrrr`: full GEFS-HRRR dataset for continental US.
-    #   `hrrr_mini`: smaller HRRR dataset (continental US), for fast experiments.
-    #   `cwb`: full CWB dataset for Taiwan.
-    #   `custom`: user-defined dataset. Parameters need to be specified below.
-
     - model: diffusion
-    # The model type.
-    # Accepted values:
-    #     `regression`: a regression UNet for deterministic predictions
-    #     `lt_aware_ce_regression`: similar to `regression` but with lead time
-    #       conditioning
-    #     `diffusion`: a diffusion UNet for residual predictions
-    #     `patched_diffusion`: a more memory-efficient diffusion model
-    #     `lt_aware_patched_diffusion`: similar to `patched_diffusion` but
-    #       with lead time conditioning
 
     - model_size: mini
-    # The model size configuration.
-    # Accepted values:
-    #     `normal`: normal model size
-    #     `mini`: smaller model size for fast experiments
-
     - training: ${model}
     # The base training parameters. Determined by the model type.
 
-
-# Dataset parameters. Used for `custom` dataset type.
-# Modify or add below parameters that should be passed as argument to the
-# user-defined dataset class.
 dataset:
     data_path: /data/corrdiff3d/hrrrmini_east_train_ble_temporal.nc
     # Path to .nc data file
@@ -71,11 +46,11 @@ dataset:
 training:
     hp:
         training_duration: 8000000
-        # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000
         checkpoint_dir: ./outputs/checkpoints/corrdiff
         save_checkpoint_freq: 1000000
+        regression_checkpoint_path: <regression_checkpoint.mdlus>
         
 
 # Parameters for wandb logging

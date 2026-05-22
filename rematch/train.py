@@ -58,8 +58,6 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-# from losses.guidance_free_loss import GuidanceFreeResidualLoss
-# from losses.plot_while_loss import ResidualLoss_with_plot
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -197,11 +195,8 @@ def main(cfg: DictConfig) -> None:
     distribution = getattr(cfg.training.hp, "distribution", None)
     student_t_nu = getattr(cfg.training.hp, "student_t_nu", None)
     residual_loss, edm_precond_super_res = ResidualLoss, EDMPrecondSuperResolution
-    # residual_loss, edm_precond_super_res = ResidualLoss_with_plot, EDMPrecondSuperResolution
     if distribution is not None and cfg.model.name not in [
         "diffusion",
-        # "patched_diffusion",
-        # "lt_aware_patched_diffusion",
     ]:
         raise ValueError(
             f"cfg.training.distribution should only be specified for diffusion models."
@@ -281,10 +276,6 @@ def main(cfg: DictConfig) -> None:
             gradient_as_bucket_view=True,
             static_graph=True,
         )
-    # if cfg.wandb.watch_model and dist.rank == 0:
-    #     wandb.watch(model)
-
-    # Load the model checkpoint if applicable
     try:
         load_checkpoint(path=checkpoint_dir, models=model)
     except Exception:
@@ -314,12 +305,6 @@ def main(cfg: DictConfig) -> None:
     else:
         regression_net = None
 
-    # Compile the model and regression net if applicable
-    # if use_torch_compile:
-    #     model = torch.compile(model)
-    #     if regression_net:
-    #         regression_net = torch.compile(regression_net)
-
     # Compute the number of required gradient accumulation rounds
     # It is automatically used if batch_size_per_gpu * dist.world_size < total_batch_size
     batch_gpu_total, num_accumulation_rounds = compute_num_accumulation_rounds(
@@ -332,55 +317,10 @@ def main(cfg: DictConfig) -> None:
 
     # calculate patch per iter
     patch_num = getattr(cfg.training.hp, "patch_num", 1)
-    # if hasattr(cfg.training.hp, "max_patch_per_gpu"):
-    #     max_patch_per_gpu = cfg.training.hp.max_patch_per_gpu
-    #     if max_patch_per_gpu // batch_size_per_gpu < 1:
-    #         raise ValueError(
-    #             f"max_patch_per_gpu ({max_patch_per_gpu}) must be greater or equal to batch_size_per_gpu ({batch_size_per_gpu})."
-    #         )
-    #     max_patch_num_per_iter = min(
-    #         patch_num, (max_patch_per_gpu // batch_size_per_gpu)
-    #     )
-    #     patch_iterations = (
-    #         patch_num + max_patch_num_per_iter - 1
-    #     ) // max_patch_num_per_iter
-    #     patch_nums_iter = [
-    #         min(max_patch_num_per_iter, patch_num - i * max_patch_num_per_iter)
-    #         for i in range(patch_iterations)
-    #     ]
-    #     logger0.info(
-    #         f"max_patch_num_per_iter is {max_patch_num_per_iter}, patch_iterations is {patch_iterations}, patch_nums_iter is {patch_nums_iter}"
-    #     )
-    # else:
     patch_nums_iter = [patch_num]
 
-    # Set patch gradient accumulation only for patched diffusion models
-    # if cfg.model.name in {
-    #     "patched_diffusion",
-    #     "lt_aware_patched_diffusion",
-    # }:
-    #     if len(patch_nums_iter) > 1:
-    #         if not patching:
-    #             logger0.info(
-    #                 "Patching is not enabled: patch gradient accumulation automatically disabled."
-    #             )
-    #             use_patch_grad_acc = False
-    #         else:
-    #             use_patch_grad_acc = True
-    #     else:
-    #         use_patch_grad_acc = False
-    # # Automatically disable patch gradient accumulation for non-patched models
-    # else:
-    #     logger0.info(
-    #         "Training a non-patched model: patch gradient accumulation automatically disabled."
-    #     )
-    #     use_patch_grad_acc = None
-
-    # Instantiate the loss function
     if cfg.model.name in (
-        "diffusion",
-        # "patched_diffusion",
-        # "lt_aware_patched_diffusion",
+        "diffusion"
     ):
         loss_init_kwargs = {}
         if student_t_nu is not None:
@@ -396,10 +336,8 @@ def main(cfg: DictConfig) -> None:
             hr_mean_conditioning=cfg.model.hr_mean_conditioning,
             **loss_init_kwargs,
         )
-    elif cfg.model.name == "regression" or cfg.model.name == "lt_aware_regression":
+    elif cfg.model.name == "regression":
         loss_fn = RegressionLoss()
-    # elif cfg.model.name == "lt_aware_ce_regression":
-    #     loss_fn = RegressionLossCE(prob_channels=prob_channels)
 
     # Instantiate the optimizer
     optimizer = torch.optim.Adam(
@@ -469,18 +407,6 @@ def main(cfg: DictConfig) -> None:
                                 img_clean, img_lr, *lead_time_label = next(
                                     dataset_iterator
                                 )
-                                # if use_apex_gn:
-                                #     img_clean = img_clean.to(
-                                #         dist.device,
-                                #         dtype=input_dtype,
-                                #         non_blocking=True,
-                                #     ).to(memory_format=torch.channels_last)
-                                #     img_lr = img_lr.to(
-                                #         dist.device,
-                                #         dtype=input_dtype,
-                                #         non_blocking=True,
-                                #     ).to(memory_format=torch.channels_last)
-                                # else:
                                 img_clean = (
                                     img_clean.to(dist.device)
                                     .to(input_dtype)
@@ -498,27 +424,7 @@ def main(cfg: DictConfig) -> None:
                                 "img_lr": img_lr,
                                 "augment_pipe": None,
                             }
-                            # if use_patch_grad_acc is not None:
-                            #     loss_fn_kwargs["use_patch_grad_acc"] = (
-                            #         use_patch_grad_acc
-                            #     )
-
-                            # if lead_time_label:
-                            #     lead_time_label = (
-                            #         lead_time_label[0].to(dist.device).contiguous()
-                            #     )
-                            #     loss_fn_kwargs.update(
-                            #         {"lead_time_label": lead_time_label}
-                            #     )
-                            # else:
-                            # lead_time_label = None
-                            # if use_patch_grad_acc:
-                            #     loss_fn.y_mean = None
-
                             for patch_num_per_iter in patch_nums_iter:
-                                # if patching is not None:
-                                #     patching.set_patch_num(patch_num_per_iter)
-                                #     loss_fn_kwargs.update({"patching": patching})
                                 with nvtx.annotate(f"loss forward", color="green"):
                                     with torch.autocast(
                                         "cuda", dtype=amp_dtype, enabled=enable_amp
@@ -616,19 +522,6 @@ def main(cfg: DictConfig) -> None:
                                         *lead_time_label_valid,
                                     ) = next(validation_dataset_iterator)
 
-                                    # if use_apex_gn:
-                                    #     img_clean_valid = img_clean_valid.to(
-                                    #         dist.device,
-                                    #         dtype=input_dtype,
-                                    #         non_blocking=True,
-                                    #     ).to(memory_format=torch.channels_last)
-                                    #     img_lr_valid = img_lr_valid.to(
-                                    #         dist.device,
-                                    #         dtype=input_dtype,
-                                    #         non_blocking=True,
-                                    #     ).to(memory_format=torch.channels_last)
-
-                                    # else:
                                     img_clean_valid = (
                                         img_clean_valid.to(dist.device)
                                         .to(input_dtype)
@@ -646,10 +539,6 @@ def main(cfg: DictConfig) -> None:
                                         "img_lr": img_lr_valid,
                                         "augment_pipe": None,
                                     }
-                                    # if use_patch_grad_acc is not None:
-                                    #     loss_valid_kwargs["use_patch_grad_acc"] = (
-                                    #         use_patch_grad_acc
-                                    #     )
                                     if lead_time_label_valid:
                                         lead_time_label_valid = (
                                             lead_time_label_valid[0]
@@ -659,9 +548,6 @@ def main(cfg: DictConfig) -> None:
                                         loss_valid_kwargs.update(
                                             {"lead_time_label": lead_time_label_valid}
                                         )
-                                    # if use_patch_grad_acc:
-                                    #     loss_fn.y_mean = None
-
                                     for patch_num_per_iter in patch_nums_iter:
                                         if patching is not None:
                                             patching.set_patch_num(patch_num_per_iter)

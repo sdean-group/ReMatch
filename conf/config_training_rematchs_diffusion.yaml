@@ -23,7 +23,7 @@ defaults:
 # user-defined dataset class.
 dataset:
     type: hrrr_mini_ot
-    data_path: /home/nvidia/projects/ReMatch/outputs/hrrr_era5/pca_ot/reg_2018-2020_ot.nc
+    data_path: <data_path.nc>
     stats_path: /data/corrdiff3d/hrrrmini_east_train_ble_temporal_stats.json
     
     # Path to json stats file
@@ -38,10 +38,10 @@ training:
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000
-        regression_checkpoint_path: "./checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_regression/CorrDiffRegressionUNet.0.8000000.mdlus"
+        regression_checkpoint_path: <regression_checkpoint.mdlus>
         # Path to load the regression checkpoint
         save_checkpoint_freq: 1000000
-        checkpoint_dir: ./checkpoints/hrrr_mini_east_train/blepressures_temporal/class_free_guidancefixweight
+        checkpoint_dir: <checkpoint_dir>
         
 swinir:
     checkpoint_path: null
