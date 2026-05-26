@@ -54,10 +54,10 @@ training:
         
 
 # Parameters for wandb logging
-wandb:
-    mode: disabled
-    # Configure whether to use wandb: "offline", "online", "disabled"
-    results_dir: "./wandb"
-    # Directory to store wandb results
-    watch_model: false
-    # If true, wandb will track model parameters and gradients
+# wandb:
+#     mode: disabled
+#     # Configure whether to use wandb: "offline", "online", "disabled"
+#     results_dir: "./wandb"
+#     # Directory to store wandb results
+#     watch_model: false
+#     # If true, wandb will track model parameters and gradients

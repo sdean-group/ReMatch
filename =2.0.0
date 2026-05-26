@@ -1,0 +1,5 @@
+Collecting termcolor
+  Using cached termcolor-3.3.0-py3-none-any.whl.metadata (6.5 kB)
+Using cached termcolor-3.3.0-py3-none-any.whl (7.7 kB)
+Installing collected packages: termcolor
+Successfully installed termcolor-3.3.0

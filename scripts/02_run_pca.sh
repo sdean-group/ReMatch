@@ -13,7 +13,7 @@ SOURCE_DATASET="${SOURCE_DATASET:-./outputs/hrrr_era5/pca_ot/reg_trainset.nc}"
 TARGET_DATASET="${TARGET_DATASET:-./outputs/hrrr_era5/pca_ot/reg_calibrationset.nc}"
 REGRESSION="${REGRESSION:-unet}"
 if [ "$REGRESSION" == "unet" ]; then
-  REG_PATH=$(ls -1 "$CHECKPOINTS_DIR/checkpoints_regression"/CorrDiffRegressionUNet.0.*.mdlus \
+  REG_PATH=$(ls -1 "$CHECKPOINTS_DIR/checkpoints_regression"/UNet.0.*.mdlus \
     | sort -V \
     | tail -n 1)
 fi

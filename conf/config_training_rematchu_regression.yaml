@@ -54,14 +54,14 @@ training:
     io:
         print_progress_freq: 10000
         checkpoint_dir: <checkpoint_dir>
-        save_checkpoint_freq: 1000000
+        save_checkpoint_freq: 1000 #1000000
 
 
 # Parameters for wandb logging
-wandb:
-    mode: disabled
-    # Configure whether to use wandb: "offline", "online", "disabled"
-    results_dir: "./wandb"
-    # Directory to store wandb results
-    watch_model: false
-    # If true, wandb will track model parameters and gradients
+# wandb:
+#     mode: disabled
+#     # Configure whether to use wandb: "offline", "online", "disabled"
+#     results_dir: "./wandb"
+#     # Directory to store wandb results
+#     watch_model: false
+#     # If true, wandb will track model parameters and gradients

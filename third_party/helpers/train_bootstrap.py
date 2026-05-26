@@ -19,9 +19,9 @@ from hydra.utils import to_absolute_path
 
 from physicsnemo import Module
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
-from physicsnemo.utils.logging.wandb import initialize_wandb
-from physicsnemo.utils import (
+from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
+# from physicsnemo.utils.logging.wandb import initialize_wandb
+from physicsnemo.utils.checkpoint import (
     load_checkpoint,
     save_checkpoint,
     get_checkpoint_dir,
@@ -34,7 +34,7 @@ from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
 from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
 
 from datasets.dataset import init_train_valid_datasets_from_config, register_dataset
-from physicsnemo.models.diffusion.patching import RandomPatching2D
+from physicsnemo.utils.patching import RandomPatching2D
 
 from helpers.train_helpers import (
     set_patch_shape,
@@ -79,15 +79,15 @@ def setup_dist_and_loggers(cfg: DictConfig):
     logger = PythonLogger("main")
     logger0 = RankZeroLoggingWrapper(logger, dist)
 
-    initialize_wandb(
-        project="Modulus-Launch",
-        entity="yujin1004",
-        name=f"CorrDiff-Training-{os.getenv('HYDRA_JOB_NAME', 'job')}",
-        group="CorrDiff-DDP-Group",
-        mode=cfg.wandb.mode,
-        config=OmegaConf.to_container(cfg, resolve=True),
-        results_dir=cfg.wandb.results_dir,
-    )
+    # initialize_wandb(
+    #     project="Modulus-Launch",
+    #     entity="yujin1004",
+    #     name=f"CorrDiff-Training-{os.getenv('HYDRA_JOB_NAME', 'job')}",
+    #     group="CorrDiff-DDP-Group",
+    #     mode=cfg.wandb.mode,
+    #     config=OmegaConf.to_container(cfg, resolve=True),
+    #     results_dir=cfg.wandb.results_dir,
+    # )
 
     return dist, logger0
 

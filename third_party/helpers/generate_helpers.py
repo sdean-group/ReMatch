@@ -15,7 +15,19 @@
 # limitations under the License.
 
 import datetime
-from physicsnemo.models.diffusion.training_utils import convert_datetime_to_cftime
+try:
+    from physicsnemo.models.diffusion.training_utils import convert_datetime_to_cftime
+except ModuleNotFoundError:
+    import cftime
+    import pandas as pd
+
+    def convert_datetime_to_cftime(dt):
+        dt = pd.Timestamp(dt).to_pydatetime()
+        return cftime.DatetimeGregorian(
+            dt.year, dt.month, dt.day,
+            dt.hour, dt.minute, dt.second,
+            dt.microsecond
+        )
 
 from third_party.datasets.dataset import init_dataset_from_config
 from third_party.datasets.base import DownscalingDataset

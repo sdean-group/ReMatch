@@ -21,7 +21,12 @@ from pathlib import Path
 
 import torch
 
-from physicsnemo.models.diffusion.training_utils.utils import InfiniteSampler
+try:
+    from physicsnemo.models.diffusion.training_utils.utils import InfiniteSampler
+except ModuleNotFoundError:
+    from physicsnemo.utils.diffusion.utils import InfiniteSampler
+except ModuleNotFoundError:
+    from physicsnemo.utils.diffusion.utils import InfiniteSampler
 from physicsnemo.distributed import DistributedManager
 
 from third_party.datasets import base, hrrrmini, hrrrmini_ot_pre_calc, blastnet, blastnet_ot_pre_calc

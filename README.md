@@ -1,13 +1,74 @@
 # ReMatch
 Official implementation of "Mind the Residual Gap: Probabilistic Downscaling under Real-World Bias"
+by [Yujin Kim](https://yujin1007.github.io/), [Nidhi Soma](https://github.com/NIDHI2023) and [Sarah Dean &dagger;](https://sdean-group.github.io/)
 
-Code coming soon! 
+[![arXiv](https://img.shields.io/badge/arXiv-2506.05294-df2a2a.svg?style=for-the-badge&logo=arxiv)](https://arxiv.org/pdf/2511.20612)
+[![License](https://img.shields.io/github/license/TRI-ML/prismatic-vlms?style=for-the-badge)](LICENSE)
+[![Website](https://img.shields.io/badge/🔗-WebSite-black?style=for-the-badge)](https://sdean-group.github.io/ReMatch/)
+
+**ReMatch** (**Re**sidual Target **Match**ing) mitigates residual target misspecification in mean–residual probabilistic downscaling. In real-world downscaling, systematic bias between low-resolution inputs and high-resolution targets can make the residuals seen during training differ from the correction residuals required at test time, causing biased and under-dispersive ensembles.
+
+ReMatch uses optimal transport to align training residual targets with a test-like calibration regime in a low-dimensional PCA space. The pipeline first trains a deterministic mean predictor, then transports the training residual targets toward calibration residuals, and finally trains a conditional diffusion model on the transported residuals. This produces high-resolution ensemble predictions with improved calibration and probabilistic spread.
+
+This repository includes ReMatch with UNet (ReMatch_u), ReMatch with SwinIr (ReMatch_s), Corrdiff and SwinIR implementation on lower starotosphere pressure level ERA5--HRRR wind field downscaling task on northeast CONUS region. 
+
+
+
+## 🛠 Environment Setup
+This project was tested with Python 3.12.3
+```bash
+pip install -r requirements.txt
+```
+### Dataset generation 
+You can download and generate datasets in here "repository" 
+## Training 
+### Configuration basics
+
+CorrDiff training is managed through `train.py` and uses YAML configuration files powered by [Hydra](https://hydra.cc/docs/intro/). The configuration system is organized as follows:
+
+- **Run Scripts**: Located in the `scripts` directory. Run script from project root. To begin training, you can specify the number of gpus, for example, 
+``bash
+GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
+``
+  - **Run all at once**:
+    - ReMatch_u: 
+      - `run_rematchu.sh` - First, train UNet regression model with train dataset. Second, collect residaul target from trained regression model and GT on train and calibration set individually, then run PCA on residual targets and low resolultion input. Third, transport trainset residual target into calibrationset resdiaul target. Lastly, train diffusion model with matched residual target on both train and calibration datset.  
+    - ReMatch_s:
+      -`run_rematchs.sh` - Same procedure with ReMatch_u but SwinIR regression model
+    -Corrdiff:
+      -`run_corrdiff.sh` - First train UNet regression model with train+calibration and then train diffusion model with train + calibration dataset 
+    -SwinIR:
+      -`run_swinir.sh` - Train SwinIR regression model using train+calibration dataset 
+  - **Run individual modules**:
+    - `01_train_regression.sh / 01_train_swinir_regression.sh` - train regression model. takes configuration file name as an input argument
+    - `02_run_pca.sh` - Run PCA on residual target and low resolution input. when there is no source(trainset) and target(calibration) generation nc file exists, run generation before PCA. Takes configuration file name for generation, source and target generation file name and regression type(unet or swinir) as input arguments. 
+    -`03_run_ot.sh` - Run optimal transport on PCA latent space of residual targets. Takes PCA results directory, source and target generation file name as input arguments. 
+    -`04_train_diffusion.sh` - Train diffusion model. Takes cnofiguration file aname as input arguments. 
+    
+
+- **Base Configurations**: Located in the `conf/base` directory
+- **Configuration Files**:
+  - **Training Configurations**:
+    - ReMatch_u: 
+      - `conf/config_training_rematchu_regression` - Configuration for training the UNet regression model, trained with training subset. 
+      - `conf/config_training_rematch_diffusion` - Configuration for training the diffusion model with pre-calculated matched residual target, trained with full training set (transported train + calibration dataset)
+    - ReMatch_s:
+      - `conf/config_training_rematchs_regression` - Configuration for training the SwinIR regression model, trained with training subset. 
+      - `conf/config_training_rematch_diffusion` - Configuration for training the diffusion model with pre-calculated matched residual target, trained with full training set (transported train + calibration dataset)
+    - Corrdiff:
+      - `conf/config_training_corrdiff_regression.yaml` - Configuration for training the UNet regression model, trained with full training set (train + calibration dataset)
+      - `conf/config_training_corrdiff_diffusion.yaml` - Configuration for training the diffusion model, trained with full training set (train + calibration dataset)
+    - SwinIr:
+      - `conf/config_training_swinirregression.yaml` - Configuration for training the SwinIR regression model, trained with full training set (train + calibration dataset)
+  - **Generation Configurations**:
+    - `conf/config_generate.yaml` - Configuration for generating monthly predictions on test dataset. 
 
 Upstream:
 - Repository: NVIDIA/physicsnemo
-- Path: examples/weather/corrdiff
-- Commit: 769d2b0eb031e9fc919e8b7e7cbdcb6816694e2b
+- Source path: examples/weather/corrdiff
+- Package used for this release: nvidia-physicsnemo==1.3.0
 - License: Apache-2.0
+- Note: This code is adapted from the CorrDiff example in NVIDIA PhysicsNeMo. Some import paths were updated for compatibility with the public PyPI release nvidia-physicsnemo==1.3.0.
 
 # SwinIR baseline
 
@@ -16,7 +77,7 @@ We use a SwinIR-style deterministic super-resolution model as a mean predictor a
 Upstream:
 - Repository: JingyunLiang/SwinIR
 - Paper: SwinIR, ICCV 2021
-- License: <check upstream license>
+- License: Apache-2.0
 
 Modifications used in this paper:
 - Adapted input/output channels for multi-channel wind-field super-resolution.

@@ -29,10 +29,10 @@ import nvtx
 import netCDF4 as nc
 import math
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
+from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo import Module
 from physicsnemo.models.diffusion.sampling import stochastic_sampler
-from physicsnemo.models.diffusion.corrdiff_utils import (
+from physicsnemo.utils.corrdiff import (
     get_time_from_range,
     regression_step,
     diffusion_step,

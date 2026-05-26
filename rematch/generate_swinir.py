@@ -29,17 +29,17 @@ import nvtx
 import netCDF4 as nc
 import math
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
+from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo.experimental.models.diffusion.preconditioning import (
     tEDMPrecondSuperRes,
 )
-from physicsnemo.models.diffusion.patching import GridPatching2D
+from physicsnemo.utils.patching import GridPatching2D
 from physicsnemo import Module
-from physicsnemo.models.diffusion.sampling import (
+from physicsnemo.utils.diffusion import (
     deterministic_sampler,
     stochastic_sampler,
 )
-from physicsnemo.models.diffusion.corrdiff_utils import (
+from physicsnemo.utils.corrdiff import (
     get_time_from_range,
     diffusion_step,
 )

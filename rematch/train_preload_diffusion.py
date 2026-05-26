@@ -30,17 +30,26 @@ import nvtx
 # import wandb
 
 # from physicsnemo import Module
-from physicsnemo.models.diffusion import (
-    CorrDiffRegressionUNet,
-    EDMPrecondSuperResolution,
-)
+try:
+    from physicsnemo.models.diffusion import (
+        CorrDiffRegressionUNet,
+        EDMPrecondSuperResolution,
+    )
+except ImportError:
+    from physicsnemo.models.diffusion import (
+        UNet as CorrDiffRegressionUNet,
+        EDMPrecondSuperResolution,
+    )
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.utils.logging import PythonLogger, RankZeroLoggingWrapper
-from physicsnemo.utils import (
-    load_checkpoint,
-    save_checkpoint,
-    get_checkpoint_dir,
-)
+from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
+try:
+    from physicsnemo.launch.utils.checkpoint import load_checkpoint, save_checkpoint, get_checkpoint_dir
+except ImportError:
+    from physicsnemo.launch.utils.checkpoint import (
+        load_checkpoint,
+        save_checkpoint,
+        get_checkpoint_dir,
+    )
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
     set_patch_shape,

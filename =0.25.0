@@ -1,0 +1,27 @@
+Collecting cartopy
+  Using cached cartopy-0.25.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (6.1 kB)
+Requirement already satisfied: numpy>=1.23 in ./.venv/lib/python3.12/site-packages (from cartopy) (2.4.6)
+Requirement already satisfied: matplotlib>=3.6 in ./.venv/lib/python3.12/site-packages (from cartopy) (3.10.9)
+Collecting shapely>=2.0 (from cartopy)
+  Using cached shapely-2.1.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.8 kB)
+Requirement already satisfied: packaging>=21 in ./.venv/lib/python3.12/site-packages (from cartopy) (26.2)
+Collecting pyshp>=2.3 (from cartopy)
+  Downloading pyshp-3.0.8-py3-none-any.whl.metadata (66 kB)
+Collecting pyproj>=3.3.1 (from cartopy)
+  Using cached pyproj-3.7.2-cp312-cp312-manylinux_2_28_x86_64.whl.metadata (31 kB)
+Requirement already satisfied: contourpy>=1.0.1 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (4.63.0)
+Requirement already satisfied: kiwisolver>=1.3.1 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (1.5.0)
+Requirement already satisfied: pillow>=8 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (12.2.0)
+Requirement already satisfied: pyparsing>=3 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (3.3.2)
+Requirement already satisfied: python-dateutil>=2.7 in ./.venv/lib/python3.12/site-packages (from matplotlib>=3.6->cartopy) (2.9.0.post0)
+Requirement already satisfied: certifi in ./.venv/lib/python3.12/site-packages (from pyproj>=3.3.1->cartopy) (2026.5.20)
+Requirement already satisfied: six>=1.5 in ./.venv/lib/python3.12/site-packages (from python-dateutil>=2.7->matplotlib>=3.6->cartopy) (1.17.0)
+Using cached cartopy-0.25.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.8 MB)
+Using cached pyproj-3.7.2-cp312-cp312-manylinux_2_28_x86_64.whl (9.6 MB)
+Downloading pyshp-3.0.8-py3-none-any.whl (61 kB)
+Using cached shapely-2.1.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.1 MB)
+Installing collected packages: shapely, pyshp, pyproj, cartopy
+
+Successfully installed cartopy-0.25.0 pyproj-3.7.2 pyshp-3.0.8 shapely-2.1.2

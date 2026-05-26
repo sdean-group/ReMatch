@@ -104,11 +104,11 @@ if [ $EXECUTE == "BASELINE_SWINIR" ]; then
   DIFFUSION_BASELINE="/home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_s/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus"
   CUDA_VISIBLE_DEVICES=0 torchrun --standalone --nproc_per_node=1 \
     -m rematch.generate_swinir --config-name=config_generate_swinir \
-    ++generation.io.output_filename=${SAVE_DIR}/600_samples.nc \
+    ++generation.io.output_filename=${SAVE_DIR}/12_samples.nc \
     ++generation.io.reg_ckpt_filename=$REGRESSION_BASELINE \
     ++generation.io.res_ckpt_filename=$DIFFUSION_BASELINE \
-    ++generation.num_ensembles=12 \
-    "generation.times=${TIMES}"
+    ++generation.num_ensembles=12 
+    # "generation.times=${TIMES}"
 fi
 if [ $EXECUTE == "OT_REG" ]; then
   echo "Running optimal transport (no penalty regularization) + regression 2018-2019"

@@ -17,7 +17,7 @@
 hydra:
     job:
           chdir: false
-          name: rematch_swinir_regression
+          name: swinir_regression
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -38,9 +38,9 @@ model:
 # user-defined dataset class.
 dataset:
     type: hrrr_mini_raw
-    data_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019.nc
+    data_path: /data/corrdiff3d/hrrrmini_east_train_ble_temporal.nc
     # Path to .nc data file
-    stats_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json 
+    stats_path: /data/corrdiff3d/hrrrmini_east_train_ble_temporal_stats.json
 
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
@@ -48,23 +48,23 @@ dataset:
 # Training parameters
 training:
     hp:
-        training_duration: 100000
+        training_duration: 1000 #100000
         batch_size_per_gpu: 32
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000
         checkpoint_dir: <checkpoint_dir>
-        save_checkpoint_freq: 20000
+        save_checkpoint_freq: 1000  #20000
 
 
 # Parameters for wandb logging
-wandb:
-    mode: disabled
-    # Configure whether to use wandb: "offline", "online", "disabled"
-    results_dir: "./wandb"
-    # Directory to store wandb results
-    watch_model: false
-    # If true, wandb will track model parameters and gradients
+# wandb:
+#     mode: disabled
+#     # Configure whether to use wandb: "offline", "online", "disabled"
+#     results_dir: "./wandb"
+#     # Directory to store wandb results
+#     watch_model: false
+#     # If true, wandb will track model parameters and gradients
 swinir:
     checkpoint_path: null
     resume: null
