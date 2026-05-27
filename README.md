@@ -70,7 +70,7 @@ GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
 
 > **💡 Memory Management**  
 > The default configuration uses a batch size of 256 (controlled by `training.hp.total_batch_size`). If you encounter memory constraints, particularly on GPUs with limited memory, you can reduce the per-GPU batch size by setting `++training.hp.batch_size_per_gpu=64` on individual module training.
-
+# CorrDiff baseline
 Upstream:
 - Repository: NVIDIA/physicsnemo
 - Source path: examples/weather/corrdiff
