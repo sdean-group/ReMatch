@@ -40,10 +40,10 @@ GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
     -SwinIR:
       -`run_swinir.sh` - Train SwinIR regression model using train+calibration dataset 
   - **Run individual modules**:
-    - `01_train_regression.sh / 01_train_swinir_regression.sh` - train regression model. takes configuration file name as an input argument
+    - `01_train_regression_unet.sh / 01_train_regression_swinir.sh` - train regression model. takes configuration file name as an input argument
     - `02_run_pca.sh` - Run PCA on residual target and low resolution input. when there is no source(trainset) and target(calibration) generation nc file exists, run generation before PCA. Takes configuration file name for generation, source and target generation file name and regression type(unet or swinir) as input arguments. 
     -`03_run_ot.sh` - Run optimal transport on PCA latent space of residual targets. Takes PCA results directory, source and target generation file name as input arguments. 
-    -`04_train_diffusion.sh` - Train diffusion model. Takes cnofiguration file aname as input arguments. 
+    -`04_train_diffusion_from_regression.sh / 04_train_diffusion_from_dataset` - Train diffusion model using either regression model or pre-generated dataset (matched residual target). 
     
 
 - **Base Configurations**: Located in the `conf/base` directory
@@ -62,6 +62,14 @@ GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
       - `conf/config_training_swinirregression.yaml` - Configuration for training the SwinIR regression model, trained with full training set (train + calibration dataset)
   - **Generation Configurations**:
     - `conf/config_generate.yaml` - Configuration for generating monthly predictions on test dataset. 
+
+**Training Details:**
+- Duration: few hours on a 8 A100 GPU
+- Checkpointing: Automatically resumes from latest checkpoint if interrupted
+- Multi-GPU Support: Compatible with `torchrun` or MPI for distributed training
+
+> **💡 Memory Management**  
+> The default configuration uses a batch size of 256 (controlled by `training.hp.total_batch_size`). If you encounter memory constraints, particularly on GPUs with limited memory, you can reduce the per-GPU batch size by setting `++training.hp.batch_size_per_gpu=64` on individual module training.
 
 Upstream:
 - Repository: NVIDIA/physicsnemo
