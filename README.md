@@ -3,7 +3,7 @@ Official implementation of "Mind the Residual Gap: Probabilistic Downscaling und
 by [Yujin Kim](https://yujin1007.github.io/), [Nidhi Soma](https://github.com/NIDHI2023) and [Sarah Dean &dagger;](https://sdean-group.github.io/)
 
 [![arXiv](https://img.shields.io/badge/arXiv-2506.05294-df2a2a.svg?style=for-the-badge&logo=arxiv)](https://arxiv.org/pdf/2511.20612)
-[![License](https://img.shields.io/github/license/TRI-ML/prismatic-vlms?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badges)](LICENSE)
 [![Website](https://img.shields.io/badge/🔗-WebSite-black?style=for-the-badge)](https://sdean-group.github.io/ReMatch/)
 
 **ReMatch** (**Re**sidual Target **Match**ing) mitigates residual target misspecification in mean–residual probabilistic downscaling. In real-world downscaling, systematic bias between low-resolution inputs and high-resolution targets can make the residuals seen during training differ from the correction residuals required at test time, causing biased and under-dispersive ensembles.
