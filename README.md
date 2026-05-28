@@ -27,7 +27,7 @@ You can download and generate datasets in here "repository"
 CorrDiff training is managed through `train.py` and uses YAML configuration files powered by [Hydra](https://hydra.cc/docs/intro/). The configuration system is organized as follows:
 
 - **Run Scripts**: Located in the `scripts` directory. Run script from project root. To begin training, you can specify the number of gpus, for example, 
-``bash
+``
 GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
 ``
   - **Run all at once**:
