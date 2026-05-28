@@ -4,7 +4,7 @@ export PYTHONPATH="$(pwd):${PYTHONPATH}"
 
 GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
-OUTPUT_DIR="./outputs
+OUTPUT_DIR="./outputs"
 CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/rematch_u"
 PCA_OT_DIR="/data/rematch_u/hrrr_era5/pca_ot"
 
