@@ -413,7 +413,7 @@ def main(cfg: DictConfig) -> None:
                             f"accumulation round {n_i}", color="Magenta"
                         ):
                             with nvtx.annotate("loading data", color="green"):
-                                img_clean, img_lr, *lead_time_label = next(
+                                img_clean, img_lr_raw, img_lr, *lead_time_label = next(
                                     dataset_iterator
                                 )
                                 img_clean = (
@@ -527,6 +527,7 @@ def main(cfg: DictConfig) -> None:
                                 for _ in range(cfg.training.io.validation_steps):
                                     (
                                         img_clean_valid,
+                                        img_lr_raw_valid,
                                         img_lr_valid,
                                         *lead_time_label_valid,
                                     ) = next(validation_dataset_iterator)

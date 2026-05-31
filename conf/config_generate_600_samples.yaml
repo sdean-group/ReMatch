@@ -18,7 +18,7 @@ hydra:
     job:
           chdir: false
           # trained on 2018-2021 pressures and temporal context. select one day from each month to see the ensemble spreads
-          name: generate_hrrr_mini_east_ensemble
+          name: generate_600_samples
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -27,28 +27,13 @@ hydra:
 # Base parameters for dataset, model, and generation
 defaults:
 
-    - dataset: hrrr_mini
-    # The dataset type for training.
-    # Accepted values:
-    #   `gefs_hrrr`: full GEFS-HRRR dataset for continental US.
-    #   `hrrr_mini`: smaller HRRR dataset (continental US), for fast experiments.
-    #   `cwb`: full CWB dataset for Taiwan.
-    #   `custom`: user-defined dataset. Parameters need to be specified below.
+    - dataset: hrrr_mini_raw
 
     - generation: non_patched
-    # The base generation parameters.
-    # Accepted values:
-    #     `patched`: base parameters for a patch-based model
-    #     `non_patched`: base parameters for a non-patched model
-
-
-# Dataset parameters. Used for `custom` dataset type.
-# Modify or add below parameters that should be passed as argument to the
-# user-defined dataset class.
 dataset:
-    data_path: /data/corrdiff3d/hrrrmini_east_test_ble_temporal.nc
+    data_path: /data/hrrr_era5_0528/hrrr_era5_test_2021.nc
     # Path to .nc data file
-    stats_path: /data/corrdiff3d/hrrrmini_east_test_ble_temporal_stats.json
+    stats_path: /data/hrrr_era5_0528/hrrr_era5_test_2021_stats.json
     # Path to json stats file
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
@@ -63,7 +48,7 @@ generation:
     seed_batch_size: 1
     inference_mode: "all" # bias for CorrDiffRegressionUNet, verifier for VerifierUNet
     hr_mean_conditioning: True
-    rmse_only: True # for yujin's network
+    load_all_times: False
     # int, size of the batched inference
     times:
         # 1 day per month samples 
@@ -687,13 +672,30 @@ generation:
     # List[str], time stamps in ISO 8601 format. Replace and list desired target
     # time stamps.
     io:
-        output_filename: /data/shared_experiment/uncertainty_estimator/scalars/rmse/2021_600samples_8milreg2018-2019_3milbias2020w3milreg_8milres2018-2020_resl2loss.nc
-        reg_ckpt_filename: /home/nvidia/projects/corrdiff/checkpoints/hrrr_mini_east_train/regression/regression_2018-2019/checkpoints_regression/CorrDiffRegressionUNet.0.8000000.mdlus
-        bias_ckpt_filename: /home/nvidia/projects/corrdiff/checkpoints/hrrr_mini_east_train/bias_corrector/2020_rmse_q90/checkpoints_regression/CorrDiffRegressionUNet.0.3000000.mdlus
-        res_ckpt_filename: /home/nvidia/projects/corrdiff/checkpoints/hrrr_mini_east_train/bias_corrector/diffusion_2020_rmse_q90/rmse_only_l2_loss_fn/EDMPrecondSuperResolution.0.8000000.mdlus
-        regandres: False
+        output_filename: ./outputs/hrrr_mini_east/ble_generation_files/corrdif_residual_2021_BLErditfix2allpressures_temporal_50samples.nc
+        res_ckpt_filename: /home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus
+        reg_ckpt_filename: /home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_regression/CorrDiffRegressionUNet.0.3008.mdlus
+
 
 # Parameters for wandb logging
 wandb:
     mode: offline
     # Configure whether to use wandb: "offline", "online", "disabled"
+
+swinir:
+    checkpoint_path: null
+    resume: null
+
+    model_args:
+        in_chans: 14
+        out_chans: 10
+        img_size: [21, 21]
+        upscale: 8
+        window_size: 7
+        embed_dim: 180
+        depths: [6, 6, 6, 6, 6, 6]
+        num_heads: [6, 6, 6, 6, 6, 6]
+        mlp_ratio: 2.0
+        drop_path_rate: 0.0
+        use_checkpoint: false
+        multi_step_sampler: true

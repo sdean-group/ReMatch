@@ -7,9 +7,9 @@ cd "${REPO_ROOT}"
 
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
-PCA_OT_DIR="${PCA_OT_DIR:-./outputs/hrrr_era5/pca_ot}"
-SOURCE_DATASET="${SOURCE_DATASET:-./outputs/hrrr_era5/pca_ot/reg_trainset.nc}"
-TARGET_DATASET="${TARGET_DATASET:-./outputs/hrrr_era5/pca_ot/reg_calibrationset.nc}"
+PCA_OT_DIR="${PCA_OT_DIR:-./outputs/pca_ot}"
+SOURCE_DATASET="${SOURCE_DATASET:-./outputs/pca_ot/reg_trainset.nc}"
+TARGET_DATASET="${TARGET_DATASET:-./outputs/pca_ot/reg_calibrationset.nc}"
 
 echo "Running optimal transport"
 python -m rematch.optimal_transport.optimal_transport \

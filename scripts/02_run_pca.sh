@@ -8,9 +8,9 @@ cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
 CONFIG="${CONFIG:-config_generate.yaml}"
-CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/hrrr_era5/checkpoints/rematch_u}"
-SOURCE_DATASET="${SOURCE_DATASET:-./outputs/hrrr_era5/pca_ot/reg_trainset.nc}"
-TARGET_DATASET="${TARGET_DATASET:-./outputs/hrrr_era5/pca_ot/reg_calibrationset.nc}"
+CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/rematch_u}"
+SOURCE_DATASET="${SOURCE_DATASET:-./outputs/pca_ot/reg_trainset.nc}"
+TARGET_DATASET="${TARGET_DATASET:-./outputs/pca_ot/reg_calibrationset.nc}"
 REGRESSION="${REGRESSION:-unet}"
 if [ "$REGRESSION" == "unet" ]; then
   REG_PATH=$(ls -1 "$CHECKPOINTS_DIR/checkpoints_regression"/UNet.0.*.mdlus \
@@ -23,7 +23,7 @@ if [ "$REGRESSION" == "swinir" ]; then
     | tail -n 1)
 fi
 
-PCA_OT_DIR="${PCA_OT_DIR:-./outputs/hrrr_era5/pca_ot}"
+PCA_OT_DIR="${PCA_OT_DIR:-./outputs/pca_ot}"
 GENERATE_DATA="${GENERATE_DATA:-false}"
 
 if [[ ! -f "${SOURCE_DATASET}" || ! -f "${TARGET_DATASET}" ]]; then
@@ -40,8 +40,8 @@ if $GENERATE_DATA; then
       ++generation.io.output_filename=$SOURCE_DATASET \
       ++generation.num_ensembles=1 \
       ++generation.inference_mode="regression"\
-      ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019.nc\
-      ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json\
+      ++dataset.data_path=/data/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc\
+      ++dataset.stats_path=/data/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json\
       ++generation.load_all_times=True\
       ++generation.times=null
       # "generation.times=${TIMES}"    
@@ -50,8 +50,8 @@ if $GENERATE_DATA; then
       ++generation.io.output_filename=$TARGET_DATASET \
       ++generation.num_ensembles=1 \
       ++generation.inference_mode="regression"\
-      ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_validation_2020.nc\
-      ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_validation_2020_stats.json\
+      ++dataset.data_path=/data/hrrr_era5_0528/hrrr_era5_calibration_2020.nc\
+      ++dataset.stats_path=/data/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json\
       ++generation.load_all_times=True\
       ++generation.times=null
   fi
@@ -61,8 +61,8 @@ if $GENERATE_DATA; then
       ++generation.io.output_filename=$SOURCE_DATASET \
       ++generation.num_ensembles=1 \
       ++generation.inference_mode="regression"\
-      ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019.nc\
-      ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json\
+      ++dataset.data_path=/data/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc\
+      ++dataset.stats_path=/data/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json\
       ++generation.load_all_times=True\
       ++generation.times=null
       # "generation.times=${TIMES}"    
@@ -71,8 +71,8 @@ if $GENERATE_DATA; then
       ++generation.io.output_filename=$TARGET_DATASET \
       ++generation.num_ensembles=1 \
       ++generation.inference_mode="regression"\
-      ++dataset.data_path=/data/corrdiff3d/hrrrmini_east_validation_2020.nc\
-      ++dataset.stats_path=/data/corrdiff3d/hrrrmini_east_validation_2020_stats.json\
+      ++dataset.data_path=/data/hrrr_era5_0528/hrrr_era5_calibration_2020.nc\
+      ++dataset.stats_path=/data/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json\
       ++generation.load_all_times=True\
       ++generation.times=null
   fi

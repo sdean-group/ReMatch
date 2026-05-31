@@ -31,7 +31,7 @@ import math
 from physicsnemo.distributed import DistributedManager
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo import Module
-from physicsnemo.models.diffusion.sampling import stochastic_sampler
+from physicsnemo.utils.diffusion import stochastic_sampler
 from physicsnemo.utils.corrdiff import (
     get_time_from_range,
     regression_step,
@@ -353,7 +353,7 @@ def main(cfg: DictConfig) -> None:
                 start = end = DummyEvent()
 
             times = dataset.time()
-            for dataset_index, (image_tar, image_lr, *lead_time_label) in zip(
+            for dataset_index, (image_tar, image_lr_raw, image_lr, *lead_time_label) in zip(
                 sampler,
                 iter(data_loader),
             ):

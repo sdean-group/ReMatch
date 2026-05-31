@@ -225,3 +225,8 @@ __marimo__/
 /wandb
 /hydra
 config_training_swinir_diffusion.yaml 
+run_generation.sh
+# Accidental pip/version constraint files
+=0.25.0
+=2.0.0
+=3.10.0
