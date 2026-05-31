@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 from torch.utils.tensorboard import SummaryWriter
 
-from third_party.swinir.swinir import SwinIR2DSR
+from third_party.baselines.swinir.swinir import SwinIR2DSR
 from rematch.rematch_loss import ResidualLoss_swinir
 from third_party.datasets.hrrrmini_raw_lr import HRRRMiniRawLRDataset
 

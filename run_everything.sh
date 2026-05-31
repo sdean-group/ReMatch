@@ -50,5 +50,5 @@ notify "${TOPIC_PREFIX}_all" "Started: full pipeline" "Full pipeline started on 
 run_job "run_rematchu" "scripts/run_rematchu.sh"
 run_job "run_corrdiff" "scripts/run_corrdiff.sh"
 run_job "run_swinir" "scripts/run_swinir.sh"
-
+run_job "run_cfg" "scripts/run_cfg.sh"
 notify "${TOPIC_PREFIX}_all" "Finished: full pipeline" "Full pipeline finished successfully on $(hostname)" "default"

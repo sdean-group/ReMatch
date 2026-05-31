@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+hydra:
+    job:
+          chdir: false
+          name: convFNO_regression
+    run:
+          dir: ./hydra/${hydra:job.name}
+    searchpath:
+          - pkg://conf/base # Do not modify
+
+# Base parameters for dataset, model, training, and validation
+defaults:
+
+    - dataset: hrrr_mini_raw 
+    - model: regression
+
+    - model_size: mini
+    - training: ${model}
+dataset:
+    type: hrrr_mini_raw
+    data_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc
+    # Path to .nc data file
+    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json 
+    # Path to json stats file
+    #dont need to traiin on surface vars but keep them in the dta
+    input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v", "month_sin","month_cos","day_sin","day_cos"]
+    output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
+
+
+# Training parameters
+training:
+    hp:
+        training_duration: 8000000
+        # Training duration based on the number of processed samples
+    io:
+        print_progress_freq: 10000
+        checkpoint_dir: <checkpoint_dir>
+        save_checkpoint_freq: 1000000
+convfno:
+    arch:
+        decoder:
+            out_features: 10
+            layers: 1
+            layer_size : 34 # this is also nfeats i think.  was 32, changing to 34 to match BlasetNet 5M param count
+            upscale: 8
+
+        fno:
+            in_channels: 14
+            dimension: 2
+            latent_channels: 34 # this is nfeats. also was 32.
+            kernel_size: 3 # blastnet added this
+            fno_layers: 32 # was 4 but blastnet did 32
+            fno_modes: 2 #was 12 but blastnet does 2
+            padding: 6 # was 9 but blastent did 6
+        scheduler:
+            initial_lr: 4.E-3
+            decay_rate: .95
+            decay_steps: 1000
+

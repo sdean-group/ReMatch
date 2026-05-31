@@ -41,7 +41,7 @@ except ImportError:
         EDMPrecondSuperResolution,
     )
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
+from physicsnemo.metrics.diffusion import RegressionLoss
 from physicsnemo.utils.patching import RandomPatching2D
 # from physicsnemo.launch.logging.wandb import initialize_wandb
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
@@ -54,7 +54,9 @@ except ImportError:
         get_checkpoint_dir,
     )
 from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
-from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
+from physicsnemo.experimental.models.diffusion.preconditioning import (
+    tEDMPrecondSuperRes,
+)
 
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
@@ -65,6 +67,7 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
+from third_party.baselines.cfg.guidance_free_loss import GuidanceFreeResidualLoss
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -201,7 +204,7 @@ def main(cfg: DictConfig) -> None:
     # Handle distribution type
     distribution = getattr(cfg.training.hp, "distribution", None)
     student_t_nu = getattr(cfg.training.hp, "student_t_nu", None)
-    residual_loss, edm_precond_super_res = ResidualLoss, EDMPrecondSuperResolution
+    residual_loss, edm_precond_super_res = GuidanceFreeResidualLoss, EDMPrecondSuperResolution
     if distribution is not None and cfg.model.name not in [
         "diffusion",
     ]:

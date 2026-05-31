@@ -27,23 +27,10 @@ import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 import nvtx
-# import wandb
 
 from physicsnemo import Module
-try:
-    from physicsnemo.models.diffusion import (
-        CorrDiffRegressionUNet,
-        EDMPrecondSuperResolution,
-    )
-except ImportError:
-    from physicsnemo.models.diffusion import (
-        UNet as CorrDiffRegressionUNet,
-        EDMPrecondSuperResolution,
-    )
+
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
-from physicsnemo.utils.patching import RandomPatching2D
-# from physicsnemo.launch.logging.wandb import initialize_wandb
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 try:
     from physicsnemo.launch.utils.checkpoint import load_checkpoint, save_checkpoint, get_checkpoint_dir
@@ -53,9 +40,6 @@ except ImportError:
         save_checkpoint,
         get_checkpoint_dir,
     )
-from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
-from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
-
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
     set_patch_shape,
@@ -65,6 +49,11 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
+
+from third_party.baselines.convfno.convfno_loss import ConvFNOLoss
+from third_party.baselines.convfno.convfno import ConvFNO
+from torch.optim import Adam, lr_scheduler
+
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -124,9 +113,10 @@ def main(cfg: DictConfig) -> None:
 
     # Initialize loggers
     if dist.rank == 0:
-        writer = SummaryWriter(log_dir=f"tensorboard/{HydraConfig.get().job.name}")
+        writer = SummaryWriter(log_dir="tensorboard")
     logger = PythonLogger("main")  # General python logger
     logger0 = RankZeroLoggingWrapper(logger, dist)  # Rank 0 logger
+
 
     # Resolve and parse configs
     OmegaConf.resolve(cfg)
@@ -174,6 +164,8 @@ def main(cfg: DictConfig) -> None:
         "num_workers": cfg.training.perf.dataloader_workers,
         "prefetch_factor": 2 if cfg.training.perf.dataloader_workers > 0 else None,
     }
+
+    
     (
         dataset,
         dataset_iterator,
@@ -188,89 +180,52 @@ def main(cfg: DictConfig) -> None:
         validation=validation,
         sampler_start_idx=cur_nimg,
     )
-
+    
     # Parse image configuration & update model args
     dataset_channels = len(dataset.input_channels())
     img_in_channels = dataset_channels
     img_shape = dataset.image_shape()
     img_out_channels = len(dataset.output_channels())
-
     if cfg.model.hr_mean_conditioning:
         img_in_channels += img_out_channels
 
-    # Handle distribution type
-    distribution = getattr(cfg.training.hp, "distribution", None)
-    student_t_nu = getattr(cfg.training.hp, "student_t_nu", None)
-    residual_loss, edm_precond_super_res = ResidualLoss, EDMPrecondSuperResolution
-    if distribution is not None and cfg.model.name not in [
-        "diffusion",
-    ]:
-        raise ValueError(
-            f"cfg.training.distribution should only be specified for diffusion models."
-        )
-    if distribution not in ["normal", "student_t", None]:
-        raise ValueError(f"Invalid distribution {distribution}")
-    if distribution == "student_t":
-        if student_t_nu is None:
-            raise ValueError(
-                "student_t_nu must be provided in cfg.training.hp.student_t_nu for student_t distribution"
-            )
-        elif student_t_nu <= 2:
-            raise ValueError(f"Expected nu > 2, but got {student_t_nu}.")
-        # Reassign models and class for student-t distribution
-        else:
-            residual_loss, edm_precond_super_res = tEDMResidualLoss, tEDMPrecondSuperRes
-            logger0.info(
-                f"Using student-t distribution with nu={student_t_nu}. "
-                f"This is an experimental feature and APIs may change without notice."
-            )
 
-    # Parse P_mean and P_std
-    P_mean = getattr(cfg.training.hp, "P_mean", None)
-    P_std = getattr(cfg.training.hp, "P_std", None)
-    sigma_data = getattr(cfg.training.hp, "sigma_data", None)
-    
-    patching = None
-    logger0.info("Patch-based training disabled")
+    # Instantiate the model and move to device.
     model_args = {  # default parameters for all networks
         "img_out_channels": img_out_channels,
         "img_resolution": list(img_shape),
         "use_fp16": fp16,
         "checkpoint_level": songunet_checkpoint_level,
     }
+    
     if hasattr(cfg.model, "model_args"):  # override defaults from config file
         model_args.update(OmegaConf.to_container(cfg.model.model_args))
 
-    
-    if enable_amp:
-        model_args["amp_mode"] = enable_amp
+    use_torch_compile = getattr(cfg.training.perf, "torch_compile", False)
+    use_apex_gn = getattr(cfg.training.perf, "use_apex_gn", False)
+    profile_mode = getattr(cfg.training.perf, "profile_mode", False)
 
-    if cfg.model.name == "regression":
-        model = CorrDiffRegressionUNet(
-            img_in_channels=img_in_channels + model_args["N_grid_channels"],
-            **model_args,
-        )
+    # NOTE: make this a config var
+    # values from default settings of their train.py
     
-    elif cfg.model.name == "diffusion":
-        model = edm_precond_super_res(
-            img_in_channels=img_in_channels + model_args["N_grid_channels"],
-            **model_args,
-        )
-    else:
-        raise ValueError(f"Invalid model: {cfg.model.name}")
+    model = ConvFNO(
+        nfeats=cfg.convfno.arch.fno.latent_channels,
+        kernel_size=cfg.convfno.arch.fno.kernel_size,
+        out_chans=img_out_channels,
+        in_channels=14,
+        out_channels=img_out_channels,
+        upscale=cfg.convfno.arch.decoder.upscale,
+        decoder_layers=cfg.convfno.arch.decoder.layers,
+        decoder_layer_size=cfg.convfno.arch.decoder.layer_size,
+        dimension=cfg.convfno.arch.fno.dimension,
+        latent_channels=cfg.convfno.arch.fno.latent_channels,
+        num_fno_layers=cfg.convfno.arch.fno.fno_layers,
+        num_fno_modes=cfg.convfno.arch.fno.fno_modes,
+        padding=cfg.convfno.arch.fno.padding,
+    ).to(dist.device)
+
 
     model.train().requires_grad_(True).to(dist.device)
-
-
-    if (
-        cfg.model.name
-        in ["regression"]
-        and patching is not None
-    ):
-        raise ValueError(
-            f"Regression model ({cfg.model.name}) cannot be used with patch-based training. "
-        )
-
     # Enable distributed data parallel if applicable
     if dist.world_size > 1:
         model = DistributedDataParallel(
@@ -283,6 +238,8 @@ def main(cfg: DictConfig) -> None:
             gradient_as_bucket_view=True,
             static_graph=True,
         )
+
+    # Load the model checkpoint if applicable
     try:
         load_checkpoint(path=checkpoint_dir, models=model)
     except Exception:
@@ -301,16 +258,22 @@ def main(cfg: DictConfig) -> None:
                 f"Expected this regression checkpoint but not found: {regression_checkpoint_path}"
             )
         regression_net = Module.from_checkpoint(
-            regression_checkpoint_path, override_args={"use_apex_gn": False}
+            regression_checkpoint_path, override_args={"use_apex_gn": use_apex_gn}
         )
-        # regression_net.amp_mode = enable_amp
-        # regression_net.profile_mode = profile_mode
+        regression_net.amp_mode = enable_amp
+        regression_net.profile_mode = profile_mode
         regression_net.eval().requires_grad_(False).to(dist.device)
-        # if use_apex_gn:
-        #     regression_net.to(memory_format=torch.channels_last)
-        logger0.success("Loaded the pre-trained regression model")
+        if use_apex_gn:
+            regression_net.to(memory_format=torch.channels_last)
+        logger0.success("Loaded the pre-trained convfno model")
     else:
         regression_net = None
+
+    # Compile the model and regression net if applicable
+    if use_torch_compile:
+        model = torch.compile(model)
+        if regression_net:
+            regression_net = torch.compile(regression_net)
 
     # Compute the number of required gradient accumulation rounds
     # It is automatically used if batch_size_per_gpu * dist.world_size < total_batch_size
@@ -326,33 +289,19 @@ def main(cfg: DictConfig) -> None:
     patch_num = getattr(cfg.training.hp, "patch_num", 1)
     patch_nums_iter = [patch_num]
 
-    if cfg.model.name in (
-        "diffusion"
-    ):
-        loss_init_kwargs = {}
-        if student_t_nu is not None:
-            loss_init_kwargs["nu"] = student_t_nu
-        if P_mean is not None:
-            loss_init_kwargs["P_mean"] = P_mean
-        if P_std is not None:
-            loss_init_kwargs["P_std"] = P_std
-        if sigma_data is not None:
-            loss_init_kwargs["sigma_data"] = sigma_data
-        loss_fn = residual_loss(
-            regression_net=regression_net,
-            hr_mean_conditioning=cfg.model.hr_mean_conditioning,
-            **loss_init_kwargs,
-        )
-    elif cfg.model.name == "regression":
-        loss_fn = RegressionLoss()
+
+    loss_fn = ConvFNOLoss()
 
     # Instantiate the optimizer
-    optimizer = torch.optim.Adam(
+    optimizer = Adam(
         params=model.parameters(),
-        lr=cfg.training.hp.lr,
+        lr=cfg.training.arch.scheduler.initial_lr,
         betas=[0.9, 0.999],
         eps=1e-8,
         fused=True,
+    )
+    scheduler = lr_scheduler.ExponentialLR(
+        optimizer, gamma=(cfg.training.arch.scheduler.decay_rate) ** (1.0 / cfg.training.arch.scheduler.decay_steps)
     )
 
     # Record the current time to measure the duration of subsequent operations.
@@ -365,6 +314,7 @@ def main(cfg: DictConfig) -> None:
         load_checkpoint(
             path=checkpoint_dir,
             optimizer=optimizer,
+            scheduler=scheduler,
             device=dist.device,
         )
     except Exception:
@@ -424,20 +374,20 @@ def main(cfg: DictConfig) -> None:
                                     .to(input_dtype)
                                     .contiguous()
                                 )
-                            # print(f"before loss, img_lr shape: {img_lr.shape}")
                             loss_fn_kwargs = {
                                 "net": model,
                                 "img_clean": img_clean,
                                 "img_lr": img_lr,
-                                "augment_pipe": None,
                             }
+
+
                             for patch_num_per_iter in patch_nums_iter:
                                 with nvtx.annotate(f"loss forward", color="green"):
                                     with torch.autocast(
                                         "cuda", dtype=amp_dtype, enabled=enable_amp
                                     ):
                                         loss = loss_fn(**loss_fn_kwargs)
-                                loss = loss.sum() / batch_size_per_gpu
+                                loss = loss.sum() / batch_size_per_gpu # why had it been commented out ? 
                                 loss_accum += (
                                     loss
                                     / num_accumulation_rounds
@@ -506,6 +456,7 @@ def main(cfg: DictConfig) -> None:
                         )
                     with nvtx.annotate("optimizer step", color="blue"):
                         optimizer.step()
+                        scheduler.step()
 
                     cur_nimg += cfg.training.hp.total_batch_size
                     done = cur_nimg >= cfg.training.hp.training_duration
@@ -530,6 +481,7 @@ def main(cfg: DictConfig) -> None:
                                         *lead_time_label_valid,
                                     ) = next(validation_dataset_iterator)
 
+                                    
                                     img_clean_valid = (
                                         img_clean_valid.to(dist.device)
                                         .to(input_dtype)
@@ -545,7 +497,6 @@ def main(cfg: DictConfig) -> None:
                                         "net": model,
                                         "img_clean": img_clean_valid,
                                         "img_lr": img_lr_valid,
-                                        "augment_pipe": None,
                                     }
                                     if lead_time_label_valid:
                                         lead_time_label_valid = (
@@ -556,12 +507,9 @@ def main(cfg: DictConfig) -> None:
                                         loss_valid_kwargs.update(
                                             {"lead_time_label": lead_time_label_valid}
                                         )
+
                                     for patch_num_per_iter in patch_nums_iter:
-                                        if patching is not None:
-                                            patching.set_patch_num(patch_num_per_iter)
-                                            loss_valid_kwargs.update(
-                                                {"patching": patching}
-                                            )
+                                        
                                         with torch.autocast(
                                             "cuda", dtype=amp_dtype, enabled=enable_amp
                                         ):
