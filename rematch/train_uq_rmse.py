@@ -57,7 +57,7 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-from third_party.baselines.uncertainty_quantification import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse
+from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -188,7 +188,7 @@ def main(cfg: DictConfig) -> None:
     # for bias correction map generation, just channel length 
     img_out_channels = len(dataset.output_channels())
     # for bias mean/std estimation, double the channel and do pooling for each channl, one for mean, and one for std 
-    # img_out_channels_for_bias_mean_std = len(dataset.output_channels()) * 2
+    img_out_channels_for_bias_mean_std = len(dataset.output_channels()) * 2
     if cfg.model.hr_mean_conditioning:
         img_in_channels += img_out_channels
 
@@ -227,19 +227,25 @@ def main(cfg: DictConfig) -> None:
     patching = None
     logger0.info("Patch-based training disabled")
     # Instantiate the model and move to device.
-    model_args = {  # default parameters for all networks
-        # "img_out_channels": img_out_channels_for_bias_mean_std, # for bias corrector network 
+    if cfg.model.name=="regression":
+        model_args = {  # default parameters for all networks
+            "img_out_channels": img_out_channels_for_bias_mean_std, # for bias corrector network 
+            "img_resolution": list(img_shape),
+            "use_fp16": fp16,
+            "checkpoint_level": songunet_checkpoint_level,
+        }
+    else:
+        model_args = {  # default parameters for all networks
         "img_out_channels": img_out_channels, # for residual and mean network 
         "img_resolution": list(img_shape),
         "use_fp16": fp16,
         "checkpoint_level": songunet_checkpoint_level,
-    }
+        }
     if hasattr(cfg.model, "model_args"):  # override defaults from config file
         model_args.update(OmegaConf.to_container(cfg.model.model_args))
 
     if enable_amp:
         model_args["amp_mode"] = enable_amp
-
     if cfg.model.name == "regression":
         # this is not for regression mean, but for bias correction
         # input : img_lr_lr, img_mean_lr

@@ -2,7 +2,8 @@ import torch
 from torch import Tensor
 from physicsnemo.metrics.diffusion import ResidualLoss
 from typing import Callable, Optional, Tuple
-from physicsnemo.models.diffusion.patching import RandomPatching2D
+# from physicsnemo.models.diffusion.patching import RandomPatching2D
+from physicsnemo.utils.patching import RandomPatching2D
 
 
 class GuidanceFreeResidualLoss(ResidualLoss):

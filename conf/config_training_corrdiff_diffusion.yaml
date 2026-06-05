@@ -28,7 +28,6 @@ defaults:
 
     - dataset: hrrr_mini_raw 
     - model: diffusion
-
     - model_size: mini
     - training: ${model}
     # The base training parameters. Determined by the model type.

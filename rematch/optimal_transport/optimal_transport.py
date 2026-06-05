@@ -879,6 +879,7 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default="")
     parser.add_argument("--channel_names", type=list, default=["50u", "50v", "75u", "75v", "100u", "100v", "125u", "125v", "150u", "150v"])
     parser.add_argument("--save_dir", type=str, default="")
+    parser.add_argument("--gpu_ids", type=str, default=0)
     return parser.parse_args()
 # ============================================================
 # Main
@@ -892,8 +893,10 @@ if __name__ == "__main__":
     target_nc_path = args.target_nc_path
     save_dir = args.save_dir
     channel_names = args.channel_names
+    gpu_ids=args.gpu_ids
    
-    knn_k = 12
+    # knn_k = 12
+    knn_k = 36
     top_m = 3
 
     alpha = 1.0
@@ -945,7 +948,7 @@ if __name__ == "__main__":
         reg=reg,
         sinkhorn_iter=sinkhorn_iter,
         sinkhorn_tol=1e-8,
-        gpu_ids=(0, 1, 2, 3),
+        gpu_ids=gpu_ids,
         x_block=512,
         y_block=2048,
         save_sparse_plan=True,

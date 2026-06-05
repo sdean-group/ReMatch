@@ -3,15 +3,13 @@ from typing import Callable, Optional, Tuple, Union
 import torch
 from torch import Tensor
 import torch.nn.functional as F
-# from physicsnemo.utils.patching import RandomPatching2D
-from physicsnemo.models.diffusion.patching import RandomPatching2D
+from physicsnemo.utils.patching import RandomPatching2D
 
 from physicsnemo.metrics.diffusion import ResidualLoss
 import math
 from numba import jit, prange
 import numpy as np
-import lpips
-import random
+
 
 class RegressionLossBiasCorrector_rmse_q90:
     """

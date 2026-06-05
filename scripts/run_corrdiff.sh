@@ -3,8 +3,9 @@ set -e
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
-OUTPUT_DIR="./outputs
-CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/corrdiff"
+OUTPUT_DIR="./outputs"
+# CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/corrdiff"
+CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/corrdiff_m"
 
 CONFIG_FILE_CORRDIFF_REG="config_training_corrdiff_regression.yaml"
 CONFIG_FILE_CORRDIFF_DIFF="config_training_corrdiff_diffusion.yaml"

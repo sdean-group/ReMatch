@@ -14,14 +14,14 @@ NPROC="${NPROC:-1}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/uq_rmse}"
 REG_DIR="${REG_DIR:-/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u}"
 
-REG_PATH=$(ls -1 "$CHECKPOINTS_DIR/checkpoints_regression"/UNet.0.*.mdlus \
+REG_PATH=$(ls -1 "$REG_DIR/checkpoints_regression"/UNet.0.*.mdlus \
   | sort -V \
   | tail -n 1)
 
 echo "Running uncertainty quantification network training - rmse"
 
 CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
-  train_bias_corrector.py --config-name=$CONFIG \
+  -m rematch.train_uq_rmse --config-name=$CONFIG \
   ++training.io.regression_checkpoint_path=$REG_PATH \
   ++training.io.checkpoint_dir=$CHECKPOINTS_DIR 
 

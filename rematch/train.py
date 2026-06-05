@@ -241,7 +241,7 @@ def main(cfg: DictConfig) -> None:
     if hasattr(cfg.model, "model_args"):  # override defaults from config file
         model_args.update(OmegaConf.to_container(cfg.model.model_args))
 
-    
+    print(f"model argument : ", model_args)
     if enable_amp:
         model_args["amp_mode"] = enable_amp
 

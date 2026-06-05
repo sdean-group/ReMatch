@@ -40,6 +40,7 @@ dataset:
 training:
     hp:
         training_duration: 8000000
+        batch_size_per_gpu: 32
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000

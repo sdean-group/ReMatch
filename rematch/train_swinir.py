@@ -446,18 +446,34 @@ def train_swinir_regression(cfg: DictConfig) -> None:
                     f"steps/s={steps_per_sec:.3f}"
                 )
 
-            if dist.rank == 0 and step % args.checkpoint_interval == 0:
-                ckpt_path = ckpt_dir / f"swinir_step_{step:08d}.pt"
-                save_swinir_checkpoint(
-                    ckpt_path,
-                    model=model,
-                    optimizer=optimizer,
-                    scaler=scaler,
-                    step=step,
-                    cfg=cfg,
-                    distributed=dist.world_size > 1,
-                )
-                logger0.info(f"Saved SwinIR checkpoint: {ckpt_path}")
+            # if dist.rank == 0 and step % args.checkpoint_interval == 0:
+            #     ckpt_path = ckpt_dir / f"swinir_step_{step:08d}.pt"
+            #     save_swinir_checkpoint(
+            #         ckpt_path,
+            #         model=model,
+            #         optimizer=optimizer,
+            #         scaler=scaler,
+            #         step=step,
+            #         cfg=cfg,
+            #         distributed=dist.world_size > 1,
+            #     )
+            #     logger0.info(f"Saved SwinIR checkpoint: {ckpt_path}")
+            if args.checkpoint_interval > 0 and step % args.checkpoint_interval == 0:
+                if dist.rank == 0:
+                    ckpt_path = ckpt_dir / f"swinir_step_{step:08d}.pt"
+                    save_swinir_checkpoint(
+                        ckpt_path,
+                        model=model,
+                        optimizer=optimizer,
+                        scaler=scaler,
+                        step=step,
+                        cfg=cfg,
+                        distributed=dist.world_size > 1,
+                    )
+                    logger0.info(f"Saved SwinIR checkpoint: {ckpt_path}")
+
+                if dist.world_size > 1:
+                    torch_dist.barrier()
 
             if args.val_interval > 0 and step % args.val_interval == 0:
                 metrics = validate_swinir(

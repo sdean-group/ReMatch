@@ -3,7 +3,7 @@ set -e
 export PYTHONPATH="$(pwd):${PYTHONPATH}"
 GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
-OUTPUT_DIR="./outputs
+OUTPUT_DIR="./outputs"
 CORRDIFF_CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/corrdiff"
 CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/cfg"
 
