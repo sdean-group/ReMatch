@@ -46,7 +46,7 @@ from third_party.helpers.generate_helpers import (
 )
 from third_party.datasets.dataset import register_dataset
 
-
+from third_party.baselines.uncertainty_quantification.uq_loss import VerifierQuantileScalarResidualLoss, ResidualLossBiasCorrector_rmse
 @hydra.main(version_base="1.2", config_path="../conf", config_name="config_generate")
 def main(cfg: DictConfig) -> None:
     """Generate random images using the techniques described in the paper
@@ -123,6 +123,19 @@ def main(cfg: DictConfig) -> None:
     else:
         raise ValueError(f"Invalid inference mode {cfg.generation.inference_mode}")
 
+    # Parse the inference mode
+    if cfg.generation.inference_mode == "regression":
+        logger0.info("ITS REGRESSION")
+        load_net_reg, load_net_res = True, False
+    elif cfg.generation.inference_mode == "diffusion":
+        logger0.info("ITS DIFFUSION")
+        load_net_reg, load_net_res = False, True
+    elif cfg.generation.inference_mode == "all":
+        logger0.info("ITS BOTH")
+        load_net_reg, load_net_res = True, True
+    else:
+        raise ValueError(f"Invalid inference mode {cfg.generation.inference_mode}")
+
     # Load diffusion network, move to device, change precision
     if load_net_res:
         res_ckpt_filename = cfg.generation.io.res_ckpt_filename
@@ -157,11 +170,36 @@ def main(cfg: DictConfig) -> None:
         net_reg.use_fp16 = getattr(cfg.generation.perf, "use_fp16", False)
         net_reg = net_reg.eval().to(device).to(memory_format=torch.channels_last)
 
+        bias_corrector_ckpt_filename = cfg.generation.io.bias_ckpt_filename
+        logger0.info(f'Loading network from "{bias_corrector_ckpt_filename}"...')
+        net_bias = Module.from_checkpoint(
+            to_absolute_path(bias_corrector_ckpt_filename),
+            override_args={
+                "use_apex_gn": getattr(cfg.generation.perf, "use_apex_gn", False)
+            },
+        )
+        net_bias.profile_mode = getattr(cfg.generation.perf, "profile_mode", False)
+        net_bias.use_fp16 = getattr(cfg.generation.perf, "use_fp16", False)
+        net_bias = net_bias.eval().to(device).to(memory_format=torch.channels_last)
         # Disable AMP for inference (even if model is trained with AMP)
         if hasattr(net_reg, "amp_mode"):
             net_reg.amp_mode = False
     else:
         net_reg = None
+    uq_type = getattr(cfg.uq, "type", "rmse")
+    if uq_type == "rmse":
+        loss_fn = ResidualLossBiasCorrector_rmse(
+            regression_net=net_reg,
+            bias_net=net_bias,
+            hr_mean_conditioning=cfg.generation.hr_mean_conditioning,
+        )
+    else:
+        loss_fn = VerifierQuantileScalarResidualLoss(
+            regression_net=net_reg,
+            bias_net=net_bias,
+            hr_mean_conditioning=cfg.generation.hr_mean_conditioning,
+        )
+    uq_step = loss_fn.bias_correction_step
 
     # Reset since we are using a different mode.
     if cfg.generation.perf.use_torch_compile:
@@ -171,19 +209,16 @@ def main(cfg: DictConfig) -> None:
             net_res = torch.compile(net_res)
         if net_reg:
             net_reg = torch.compile(net_reg)
-
-    # Partially instantiate the sampler based on the configs
     sampler_fn = partial(stochastic_sampler)
-    # Parse the distribution type
-
-
+    
     # Main generation definition
     def generate_fn():
         with nvtx.annotate("generate_fn", color="green"):
             diffusion_step_kwargs = {}
+
+            # (1, C, H, W)
             img_lr = image_lr.to(memory_format=torch.channels_last)
-            B, C, H, W = img_lr.shape
-            
+
             if net_reg:
                 with nvtx.annotate("regression_model", color="yellow"):
                     image_reg = regression_step(
@@ -196,9 +231,28 @@ def main(cfg: DictConfig) -> None:
                             img_shape[1],
                         ),  # (batch_size, C, H, W)
                     )
+                    y_lr = img_lr.expand(
+                            cfg.generation.seed_batch_size, -1, -1, -1
+                        ).to(memory_format=torch.channels_last)
+                    
+                    pred_uq1, pred_uq2 = uq_step(
+                        img_lr= y_lr,
+                        img_reg=image_reg[0:1],
+                    )
+                    B,C,H,W = image_reg.shape
+                    pred_uq1_map = pred_uq1[:, :, None, None].expand(-1, -1, H, W)
+                    pred_uq2_map  = pred_uq2[:, :, None, None].expand(-1, -1, H, W)
+                    
+                    # print(f"y_lr.shape:{y_lr.shape}, pred_uq1_map : {pred_uq1_map.shape}, pred_uq1.shape:{pred_uq1.shape}")
+                    if uq_type == "rmse":
+                        y_lr = torch.cat((y_lr, pred_uq1_map), dim=1)
+                    
+                    else:
+                        y_lr = torch.cat((y_lr, pred_uq1_map, pred_uq2_map), dim=1)
+
             else:
                 logger0.warning("Regression is None")
-                image_reg = torch.zeros_like(image_tar)
+                image_reg = None
             if net_res:
                 if cfg.generation.hr_mean_conditioning:
                     mean_hr = image_reg[0:1]
@@ -211,22 +265,20 @@ def main(cfg: DictConfig) -> None:
                         img_shape=img_shape,
                         img_out_channels=img_out_channels,
                         rank_batches=rank_batches,
-                        img_lr=img_lr.expand(
-                            cfg.generation.seed_batch_size, -1, -1, -1
-                        ).to(memory_format=torch.channels_last),
+                        img_lr=y_lr,
                         rank=dist.rank,
                         device=device,
                         mean_hr=mean_hr,
+                        lead_time_label=lead_time_label,
                         **diffusion_step_kwargs,
                     )
                     
             if cfg.generation.inference_mode == "regression":
-                image_out = image_reg
+                image_out = image_reg 
                 image_res = None
             elif cfg.generation.inference_mode == "diffusion":
                 logger0.info(f"Using inference mode: diffusion")
                 image_out = image_res
-                image_reg = None
             else:
                 image_out = image_reg + image_res
 

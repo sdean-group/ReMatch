@@ -13,6 +13,7 @@ NPROC="${NPROC:-1}"
 
 REG_DIR="${REG_DIR:-/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/uq_rmse}"
+UQ="${UQ:-rmse}"
 
 echo "Running diffusion from regression model"
 echo "REG_DIR=${REG_DIR}"
@@ -49,8 +50,10 @@ echo "Using UQ/bias checkpoint: ${UQ_PATH}"
 CUDA_VISIBLE_DEVICES="${GPUS}" torchrun \
   --standalone \
   --nproc_per_node="${NPROC}" \
-  -m rematch.train_uq_rmse \
+  -m rematch.train_uq\
   --config-name="${CONFIG}" \
+  ++hydra.job.name="uq_quantiles_diffusion"\
   "++training.io.checkpoint_dir=${CHECKPOINTS_DIR}" \
   "++training.io.regression_checkpoint_path=${REG_PATH}" \
-  "++training.io.bias_checkpoint_path=${UQ_PATH}"
+  "++training.io.bias_checkpoint_path=${UQ_PATH}"\
+  ++uq.type=$UQ

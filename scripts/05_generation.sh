@@ -64,68 +64,68 @@ export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 CONFIG="${CONFIG:-config_generate_600_samples.yaml}"
 NUM_ENSEMBLES="${NUM_ENSEMBLES:-12}"
 
-# mkdir -p logs/generate
+# # mkdir -p logs/generate
 
-run_generate () {
-    local NAME="$1"
-    local GPU="$2"
-    local REGRESSION_BASELINE="$3"
-    local DIFFUSION_BASELINE="$4"
-    local SAVE_DIR="$5"
+# run_generate () {
+#     local NAME="$1"
+#     local GPU="$2"
+#     local REGRESSION_BASELINE="$3"
+#     local DIFFUSION_BASELINE="$4"
+#     local SAVE_DIR="$5"
 
-    mkdir -p "${SAVE_DIR}"
+#     mkdir -p "${SAVE_DIR}"
 
-    echo "Running generation ${NAME} on GPU ${GPU}" >&2
+#     echo "Running generation ${NAME} on GPU ${GPU}" >&2
 
-    (
-        export CUDA_VISIBLE_DEVICES="${GPU}"
+#     (
+#         export CUDA_VISIBLE_DEVICES="${GPU}"
 
-        torchrun \
-            --standalone \
-            --nproc_per_node=1 \
-            -m rematch.generate \
-            --config-name="${CONFIG}" \
-            ++generation.io.output_filename="${SAVE_DIR}/600_samples.nc" \
-            ++generation.io.reg_ckpt_filename="${REGRESSION_BASELINE}" \
-            ++generation.io.res_ckpt_filename="${DIFFUSION_BASELINE}" \
-            ++generation.num_ensembles="${NUM_ENSEMBLES}" \
-            ++generation.inference_mode="all"
-    ) > "logs/generate/${NAME}.log" 2>&1 &
+#         torchrun \
+#             --standalone \
+#             --nproc_per_node=1 \
+#             -m rematch.generate \
+#             --config-name="${CONFIG}" \
+#             ++generation.io.output_filename="${SAVE_DIR}/600_samples.nc" \
+#             ++generation.io.reg_ckpt_filename="${REGRESSION_BASELINE}" \
+#             ++generation.io.res_ckpt_filename="${DIFFUSION_BASELINE}" \
+#             ++generation.num_ensembles="${NUM_ENSEMBLES}" \
+#             ++generation.inference_mode="all"
+#     ) > "logs/generate/${NAME}.log" 2>&1 &
 
-    echo $!
-}
+#     echo $!
+# }
 
-# PID_REMATCH_U=$(run_generate \
-#     "rematch_u" \
-#     "0" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-#     "/data/hrrr_era5_0528/experiment_result/rematch_u")
+# # # PID_REMATCH_U=$(run_generate \
+# # #     "rematch_u" \
+# # #     "0" \
+# # #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
+# # #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+# # #     "/data/hrrr_era5_0528/experiment_result/rematch_u")
 
-PID_CORRDIFF=$(run_generate \
-    "corrdiff_m" \
-    "1" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff_m/checkpoints_regression/UNet.0.3000064.mdlus" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff_m/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-    "/data/hrrr_era5_0528/experiment_result/corrdiff_m")
+# PID_CORRDIFF=$(run_generate \
+#     "corrdiff_m" \
+#     "1" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff_m/checkpoints_regression/UNet.0.3000064.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff_m/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/data/hrrr_era5_0528/experiment_result/corrdiff_m")
 
-# PID_CFG=$(run_generate \
-#     "cfg" \
-#     "3" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_regression/UNet.0.8000000.mdlus" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-#     "/data/hrrr_era5_0528/experiment_result/cfg")
+# # PID_CFG=$(run_generate \
+# #     "cfg" \
+# #     "3" \
+# #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_regression/UNet.0.8000000.mdlus" \
+# #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+# #     "/data/hrrr_era5_0528/experiment_result/cfg")
 
-# echo "Started jobs:"
-# echo "  rematch_u PID=${PID_REMATCH_U}"
-echo "  corrdiff  PID=${PID_CORRDIFF}"
-# echo "  cfg       PID=${PID_CFG}"
+# # echo "Started jobs:"
+# # echo "  rematch_u PID=${PID_REMATCH_U}"
+# echo "  corrdiff  PID=${PID_CORRDIFF}"
+# # # echo "  cfg       PID=${PID_CFG}"
 
-# wait "${PID_REMATCH_U}"
-wait "${PID_CORRDIFF}"
-# wait "${PID_CFG}"
+# # # wait "${PID_REMATCH_U}"
+# wait "${PID_CORRDIFF}"
+# # # wait "${PID_CFG}"
 
-echo "All generation jobs completed."
+# echo "All generation jobs completed."
 
 
 
@@ -183,3 +183,101 @@ echo "All generation jobs completed."
 # # wait "${PID_UNET}"
 
 # echo "Both generation jobs completed."
+CONFIG="${CONFIG:-config_generate_600_samples.yaml}"
+
+run_generate () {
+    local NAME="$1"
+    local GPU="$2"
+    local REGRESSION_BASELINE="$3"
+    local DIFFUSION_BASELINE="$4"
+    local UQ_BASELINE="$5"
+    local UQ_TYPE="$6"
+    local SAVE_DIR="$7"
+
+    mkdir -p "${SAVE_DIR}"
+
+    echo "Running generation ${NAME} on GPU ${GPU}" >&2
+
+    (
+        export CUDA_VISIBLE_DEVICES="${GPU}"
+
+        torchrun \
+            --standalone \
+            --nproc_per_node=1 \
+            -m rematch.generate_uq \
+            --config-name="${CONFIG}" \
+            ++generation.io.output_filename="${SAVE_DIR}/600_samples.nc" \
+            ++generation.io.reg_ckpt_filename="${REGRESSION_BASELINE}" \
+            ++generation.io.res_ckpt_filename="${DIFFUSION_BASELINE}" \
+            ++generation.io.bias_ckpt_filename="${UQ_BASELINE}" \
+            ++generation.num_ensembles="${NUM_ENSEMBLES}" \
+            ++generation.inference_mode="all"\
+            ++uq.type="${UQ_TYPE}"
+    ) > "logs/generate/${NAME}.log" 2>&1 &
+
+    echo $!
+}
+
+PID_UQ_RMSE=$(run_generate \
+    "uq_quantiles" \
+    "0" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_regression/UNet.0.8000000.mdlus" \
+    "quantiles"\
+    "/data/hrrr_era5_0528/experiment_result/uq_quantiles")
+
+# PID_UQ_QUANTILES=$(run_generate \
+#     "uq_quantiles" \
+#     "1" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_regression/UNet.0.3000064.mdlus" \
+#     "quantiles"\
+#     "/data/hrrr_era5_0528/experiment_result/uq_quantiles")
+
+# echo "Started jobs:"
+# echo "  rematch_u PID=${PID_UQ_RMSE}"
+# echo "  corrdiff  PID=${PID_UQ_QUANTILES}"
+
+# wait "${PID_UQ_RMSE}"
+# wait "${PID_UQ_QUANTILES}"
+# echo "All generation jobs completed."
+# run_generate () {
+#     local NAME="$1"
+#     local GPU="$2"
+#     local DIFFUSION_BASELINE="$3"
+#     local SAVE_DIR="$4"
+
+#     mkdir -p "${SAVE_DIR}"
+
+#     echo "Running generation ${NAME} on GPU ${GPU}" >&2
+
+#     (
+#         export CUDA_VISIBLE_DEVICES="${GPU}"
+
+#         torchrun \
+#             --standalone \
+#             --nproc_per_node=1 \
+#             -m rematch.generate \
+#             --config-name="${CONFIG}" \
+#             ++generation.io.output_filename="${SAVE_DIR}/600_samples.nc" \
+#             ++generation.io.res_ckpt_filename="${DIFFUSION_BASELINE}" \
+#             ++generation.num_ensembles="${NUM_ENSEMBLES}" \
+#             ++generation.inference_mode="diffusion"
+#     ) > "logs/generate/${NAME}.log" 2>&1 &
+
+#     echo $!
+# }
+
+# PID_CDM=$(run_generate \
+#     "cdm" \
+#     "0" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cdm/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/data/hrrr_era5_0528/experiment_result/cdm")
+
+# echo "Started jobs:"
+# echo "  rematch_u PID=${PID_CDM}"
+
+# wait "${PID_CDM}"
+# echo "All generation jobs completed."

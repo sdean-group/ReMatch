@@ -27,15 +27,18 @@ import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 import nvtx
+# import wandb
 
 from physicsnemo import Module
-from physicsnemo.models.diffusion import (
-    UNet as CorrDiffRegressionUNet,
-    EDMPrecondSuperResolution,
-)
+try:
+    from physicsnemo.models.diffusion import (
+        EDMPrecondSuperResolution,
+    )
+except ImportError:
+    from physicsnemo.models.diffusion import (
+        EDMPrecondSuperResolution,
+    )
 from physicsnemo.distributed import DistributedManager
-from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
-from physicsnemo.utils.patching import RandomPatching2D
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 try:
     from physicsnemo.launch.utils.checkpoint import load_checkpoint, save_checkpoint, get_checkpoint_dir
@@ -57,7 +60,7 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse
+from third_party.baselines.cdm.diffusion_loss import DiffusionLoss
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -117,9 +120,10 @@ def main(cfg: DictConfig) -> None:
 
     # Initialize loggers
     if dist.rank == 0:
-        writer = SummaryWriter(log_dir="tensorboard")
+        writer = SummaryWriter(log_dir=f"tensorboard/{HydraConfig.get().job.name}")
     logger = PythonLogger("main")  # General python logger
-    logger0 = RankZeroLoggingWrapper(logger, dist) 
+    logger0 = RankZeroLoggingWrapper(logger, dist)  # Rank 0 logger
+
     # Resolve and parse configs
     OmegaConf.resolve(cfg)
     dataset_cfg = OmegaConf.to_container(cfg.dataset)  # TODO needs better handling
@@ -185,17 +189,15 @@ def main(cfg: DictConfig) -> None:
     dataset_channels = len(dataset.input_channels())
     img_in_channels = dataset_channels
     img_shape = dataset.image_shape()
-    # for bias correction map generation, just channel length 
     img_out_channels = len(dataset.output_channels())
-    # for bias mean/std estimation, double the channel and do pooling for each channl, one for mean, and one for std 
-    img_out_channels_for_bias_mean_std = len(dataset.output_channels()) * 2
+
     if cfg.model.hr_mean_conditioning:
         img_in_channels += img_out_channels
 
     # Handle distribution type
     distribution = getattr(cfg.training.hp, "distribution", None)
     student_t_nu = getattr(cfg.training.hp, "student_t_nu", None)
-    residual_loss, edm_precond_super_res = ResidualLoss, EDMPrecondSuperResolution
+    residual_loss, edm_precond_super_res = DiffusionLoss, EDMPrecondSuperResolution
     if distribution is not None and cfg.model.name not in [
         "diffusion",
     ]:
@@ -226,48 +228,24 @@ def main(cfg: DictConfig) -> None:
     
     patching = None
     logger0.info("Patch-based training disabled")
-    # Instantiate the model and move to device.
-    if cfg.model.name=="regression":
-        model_args = {  # default parameters for all networks
-            "img_out_channels": img_out_channels_for_bias_mean_std, # for bias corrector network 
-            "img_resolution": list(img_shape),
-            "use_fp16": fp16,
-            "checkpoint_level": songunet_checkpoint_level,
-        }
-    else:
-        model_args = {  # default parameters for all networks
-        "img_out_channels": img_out_channels, # for residual and mean network 
+    model_args = {  # default parameters for all networks
+        "img_out_channels": img_out_channels,
         "img_resolution": list(img_shape),
         "use_fp16": fp16,
         "checkpoint_level": songunet_checkpoint_level,
-        }
+    }
     if hasattr(cfg.model, "model_args"):  # override defaults from config file
         model_args.update(OmegaConf.to_container(cfg.model.model_args))
 
+    print(f"model argument : ", model_args)
     if enable_amp:
         model_args["amp_mode"] = enable_amp
-    if cfg.model.name == "regression":
-        # this is not for regression mean, but for bias correction
-        # input : img_lr_lr, img_mean_lr
-        # GT : img_clean_lr - img_mean_lr
-        model = CorrDiffRegressionUNet(
-            img_in_channels=img_in_channels + model_args["N_grid_channels"] + img_out_channels,
-            **model_args,
-        )
-    elif cfg.model.name == "diffusion":
-        # add 2*img_out_channels channels for bias mean and std
-        # model = edm_precond_super_res(
-        #     img_in_channels=img_in_channels + model_args["N_grid_channels"]+2*img_out_channels,
-        #     **model_args,
-        # )
-        # add img_out_channels channels for bias mean only 
-        model = edm_precond_super_res(
-            img_in_channels=img_in_channels + model_args["N_grid_channels"]+img_out_channels,
-            **model_args,
-        )
-    else:
-        raise ValueError(f"Invalid model: {cfg.model.name}")
 
+    model = edm_precond_super_res(
+            img_in_channels=img_in_channels + model_args["N_grid_channels"],
+            **model_args,
+        )
+    
     model.train().requires_grad_(True).to(dist.device)
 
 
@@ -283,54 +261,12 @@ def main(cfg: DictConfig) -> None:
             gradient_as_bucket_view=True,
             static_graph=True,
         )
-
-    # Load the model checkpoint if applicable
     try:
         load_checkpoint(path=checkpoint_dir, models=model)
     except Exception:
         pass
 
-    # Load the regression checkpoint if applicable
-    if (
-        hasattr(cfg.training.io, "regression_checkpoint_path")
-        and cfg.training.io.regression_checkpoint_path is not None
-    ):
-        regression_checkpoint_path = to_absolute_path(
-            cfg.training.io.regression_checkpoint_path
-        )
-        if not os.path.exists(regression_checkpoint_path):
-            raise FileNotFoundError(
-                f"Expected this regression checkpoint but not found: {regression_checkpoint_path}"
-            )
-        print(f"Loading regression checkpoint from {regression_checkpoint_path}")
-        regression_net = Module.from_checkpoint(
-            regression_checkpoint_path, override_args={"use_apex_gn": False}
-        )
-        regression_net.eval().requires_grad_(False).to(dist.device)
-        logger0.success("Loaded the pre-trained regression model")
-    else:
-        regression_net = None
-        # Load the regression checkpoint if applicable
-    if (
-        hasattr(cfg.training.io, "bias_checkpoint_path")
-        and cfg.training.io.bias_checkpoint_path is not None
-    ):
-        bias_checkpoint_path = to_absolute_path(
-            cfg.training.io.bias_checkpoint_path
-        )
-        if not os.path.exists(bias_checkpoint_path):
-            raise FileNotFoundError(
-                f"Expected this bias checkpoint but not found: {bias_checkpoint_path}"
-            )
-        print(f"Loading bias checkpoint from {bias_checkpoint_path}")
-        bias_net = Module.from_checkpoint(
-            bias_checkpoint_path, override_args={"use_apex_gn": False}
-        )
-        bias_net.eval().requires_grad_(False).to(dist.device)
-        logger0.success("Loaded the pre-trained bias model")
-    else:
-        bias_net = None
-    
+
     # Compute the number of required gradient accumulation rounds
     # It is automatically used if batch_size_per_gpu * dist.world_size < total_batch_size
     batch_gpu_total, num_accumulation_rounds = compute_num_accumulation_rounds(
@@ -344,28 +280,24 @@ def main(cfg: DictConfig) -> None:
     # calculate patch per iter
     patch_num = getattr(cfg.training.hp, "patch_num", 1)
     patch_nums_iter = [patch_num]
-    use_patch_grad_acc = None
 
-    # Instantiate the loss function
-    if cfg.model.name in (
-        "diffusion",
-    ):
-        loss_init_kwargs = {}
-        if student_t_nu is not None:
-            loss_init_kwargs["nu"] = student_t_nu
-        if P_mean is not None:
-            loss_init_kwargs["P_mean"] = P_mean
-        if P_std is not None:
-            loss_init_kwargs["P_std"] = P_std
-        loss_fn = ResidualLossBiasCorrector_rmse(
-            regression_net=regression_net,
-            bias_net=bias_net,
-            hr_mean_conditioning=cfg.model.hr_mean_conditioning,
-            **loss_init_kwargs,
-        )
-    elif cfg.model.name == "regression":
-        loss_fn = RegressionLossBiasCorrector_rmse_q90(regression_net=regression_net)
-    
+
+    loss_init_kwargs = {}
+    if student_t_nu is not None:
+        loss_init_kwargs["nu"] = student_t_nu
+    if P_mean is not None:
+        loss_init_kwargs["P_mean"] = P_mean
+    if P_std is not None:
+        loss_init_kwargs["P_std"] = P_std
+    if sigma_data is not None:
+        loss_init_kwargs["sigma_data"] = sigma_data
+    loss_fn = residual_loss(
+        regression_net=None,
+        hr_mean_conditioning=cfg.model.hr_mean_conditioning,
+        **loss_init_kwargs,
+    )
+
+
     # Instantiate the optimizer
     optimizer = torch.optim.Adam(
         params=model.parameters(),
@@ -444,20 +376,18 @@ def main(cfg: DictConfig) -> None:
                                     .to(input_dtype)
                                     .contiguous()
                                 )
+                            # print(f"before loss, img_lr shape: {img_lr.shape}")
                             loss_fn_kwargs = {
                                 "net": model,
                                 "img_clean": img_clean,
                                 "img_lr": img_lr,
-                                "augment_pipe": None,
                             }
-
                             for patch_num_per_iter in patch_nums_iter:
                                 with nvtx.annotate(f"loss forward", color="green"):
                                     with torch.autocast(
                                         "cuda", dtype=amp_dtype, enabled=enable_amp
                                     ):
                                         loss = loss_fn(**loss_fn_kwargs)
-
                                 loss = loss.sum() / batch_size_per_gpu
                                 loss_accum += (
                                     loss
@@ -566,8 +496,16 @@ def main(cfg: DictConfig) -> None:
                                         "net": model,
                                         "img_clean": img_clean_valid,
                                         "img_lr": img_lr_valid,
-                                        "augment_pipe": None,
                                     }
+                                    if lead_time_label_valid:
+                                        lead_time_label_valid = (
+                                            lead_time_label_valid[0]
+                                            .to(dist.device)
+                                            .contiguous()
+                                        )
+                                        loss_valid_kwargs.update(
+                                            {"lead_time_label": lead_time_label_valid}
+                                        )
                                     for patch_num_per_iter in patch_nums_iter:
                                         if patching is not None:
                                             patching.set_patch_num(patch_num_per_iter)

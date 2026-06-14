@@ -17,7 +17,7 @@
 hydra:
     job:
           chdir: false
-          name: uncertainty_quantification_rmse
+          name: uncertainty_quantification
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -28,7 +28,7 @@ defaults:
 
     - dataset: hrrr_mini_raw
     - model: regression
-    - model_size: tiny
+    - model_size: mini #tiny
     - training: ${model}
     # The base training parameters. Determined by the model type.
 
@@ -50,11 +50,12 @@ dataset:
 # Training parameters
 training:
     hp:
-        training_duration: 3000000
+        training_duration: 8000000
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000
         checkpoint_dir: <checkpoint_dir>
         regression_checkpoint_path: <regression_checkpoint>
         save_checkpoint_freq: 1000000
-
+uq:
+    type: rmse

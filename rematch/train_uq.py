@@ -1,0 +1,726 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import time
+from contextlib import nullcontext
+
+import psutil
+import hydra
+from hydra.utils import to_absolute_path
+from hydra.core.hydra_config import HydraConfig
+from omegaconf import DictConfig, OmegaConf
+import torch
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.tensorboard import SummaryWriter
+import nvtx
+
+from physicsnemo import Module
+from physicsnemo.models.diffusion import (
+    UNet as CorrDiffRegressionUNet,
+    EDMPrecondSuperResolution,
+)
+from physicsnemo.distributed import DistributedManager
+from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
+from physicsnemo.utils.patching import RandomPatching2D
+from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
+try:
+    from physicsnemo.launch.utils.checkpoint import load_checkpoint, save_checkpoint, get_checkpoint_dir
+except ImportError:
+    from physicsnemo.launch.utils.checkpoint import (
+        load_checkpoint,
+        save_checkpoint,
+        get_checkpoint_dir,
+    )
+from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
+from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
+
+from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
+from third_party.helpers.train_helpers import (
+    set_patch_shape,
+    set_seed,
+    configure_cuda_for_consistent_precision,
+    compute_num_accumulation_rounds,
+    handle_and_clip_gradients,
+    is_time_for_periodic_task,
+)
+from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse
+# from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_quantiles, ResidualLossBiasCorrector_quantiles
+from third_party.baselines.uncertainty_quantification.uq_loss import VerifierLossQuantileScalar, VerifierQuantileScalarResidualLoss
+torch._dynamo.reset()
+# Increase the cache size limit
+torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
+torch._dynamo.config.verbose = True  # Enable verbose logging
+torch._dynamo.config.suppress_errors = False  # Forces the error to show all details
+torch._logging.set_logs(recompiles=True, graph_breaks=True)
+
+
+def checkpoint_list(path, suffix=".mdlus"):
+    """Helper function to return sorted list, in ascending order, of checkpoints in a path"""
+    checkpoints = []
+    for file in os.listdir(path):
+        if file.endswith(suffix):
+            # Split the filename and extract the index
+            try:
+                index = int(file.split(".")[-2])
+                checkpoints.append((index, file))
+            except ValueError:
+                continue
+
+    # Sort by index and return filenames
+    checkpoints.sort(key=lambda x: x[0])
+    return [file for _, file in checkpoints]
+
+
+# Define safe CUDA profiler tools that fallback to no-ops when CUDA is not available
+def cuda_profiler():
+    if torch.cuda.is_available():
+        return torch.cuda.profiler.profile()
+    else:
+        return nullcontext()
+
+
+def cuda_profiler_start():
+    if torch.cuda.is_available():
+        torch.cuda.profiler.start()
+
+
+def cuda_profiler_stop():
+    if torch.cuda.is_available():
+        torch.cuda.profiler.stop()
+
+
+def profiler_emit_nvtx():
+    if torch.cuda.is_available():
+        return torch.autograd.profiler.emit_nvtx()
+    else:
+        return nullcontext()
+
+
+# Train the CorrDiff model using the configurations in "conf/config_training.yaml"
+@hydra.main(version_base="1.2", config_path="../conf", config_name="config_training")
+def main(cfg: DictConfig) -> None:
+    # Initialize distributed environment for training
+    DistributedManager.initialize()
+    dist = DistributedManager()
+
+    # Initialize loggers
+    if dist.rank == 0:
+        writer = SummaryWriter(log_dir=f"tensorboard/{HydraConfig.get().job.name}")
+        print(f"job name :{HydraConfig.get().job.name} ")
+    logger = PythonLogger("main")  # General python logger
+    logger0 = RankZeroLoggingWrapper(logger, dist) 
+    # Resolve and parse configs
+    OmegaConf.resolve(cfg)
+    dataset_cfg = OmegaConf.to_container(cfg.dataset)  # TODO needs better handling
+
+    # Register custom dataset if specified in config
+    register_dataset(cfg.dataset.type)
+    logger0.info(f"Using dataset: {cfg.dataset.type}")
+
+    if hasattr(cfg, "validation"):
+        validation = True
+        validation_dataset_cfg = OmegaConf.to_container(cfg.validation)
+    else:
+        validation = False
+        validation_dataset_cfg = None
+    fp_optimizations = cfg.training.perf.fp_optimizations
+    songunet_checkpoint_level = cfg.training.perf.songunet_checkpoint_level
+    fp16 = fp_optimizations == "fp16"
+    enable_amp = fp_optimizations.startswith("amp")
+    amp_dtype = torch.float16 if (fp_optimizations == "amp-fp16") else torch.bfloat16
+    logger.info(f"Saving the outputs in {os.getcwd()}")
+    checkpoint_dir = get_checkpoint_dir(
+        str(cfg.training.io.get("checkpoint_dir", ".")), cfg.model.name
+    )
+    if cfg.training.hp.batch_size_per_gpu == "auto":
+        cfg.training.hp.batch_size_per_gpu = (
+            cfg.training.hp.total_batch_size // dist.world_size
+        )
+
+    # Load the current number of images for resuming
+    try:
+        cur_nimg = load_checkpoint(
+            path=checkpoint_dir,
+        )
+    except Exception:
+        cur_nimg = 0
+
+    # Set seeds and configure CUDA and cuDNN settings to ensure consistent precision
+    set_seed(dist.rank + cur_nimg)
+    configure_cuda_for_consistent_precision()
+
+    # Instantiate the dataset
+    data_loader_kwargs = {
+        "pin_memory": True,
+        "num_workers": cfg.training.perf.dataloader_workers,
+        "prefetch_factor": 2 if cfg.training.perf.dataloader_workers > 0 else None,
+    }
+    (
+        dataset,
+        dataset_iterator,
+        validation_dataset,
+        validation_dataset_iterator,
+    ) = init_train_valid_datasets_from_config(
+        dataset_cfg,
+        data_loader_kwargs,
+        batch_size=cfg.training.hp.batch_size_per_gpu,
+        seed=0,
+        validation_dataset_cfg=validation_dataset_cfg,
+        validation=validation,
+        sampler_start_idx=cur_nimg,
+    )
+    uq_type = getattr(cfg.uq, "type", "rmse")
+
+    # Parse image configuration & update model args
+    dataset_channels = len(dataset.input_channels())
+    img_in_channels = dataset_channels
+    img_shape = dataset.image_shape()
+    # for bias correction map generation, just channel length 
+    img_out_channels = len(dataset.output_channels())
+    # for bias mean/std estimation, double the channel and do pooling for each channl, one for mean, and one for std 
+    img_out_channels_uq = len(dataset.output_channels()) * 2
+    if cfg.model.hr_mean_conditioning:
+        img_in_channels += img_out_channels
+
+    # Handle distribution type
+    distribution = getattr(cfg.training.hp, "distribution", None)
+    student_t_nu = getattr(cfg.training.hp, "student_t_nu", None)
+    residual_loss, edm_precond_super_res = ResidualLoss, EDMPrecondSuperResolution
+    if distribution is not None and cfg.model.name not in [
+        "diffusion",
+    ]:
+        raise ValueError(
+            f"cfg.training.distribution should only be specified for diffusion models."
+        )
+    if distribution not in ["normal", "student_t", None]:
+        raise ValueError(f"Invalid distribution {distribution}")
+    if distribution == "student_t":
+        if student_t_nu is None:
+            raise ValueError(
+                "student_t_nu must be provided in cfg.training.hp.student_t_nu for student_t distribution"
+            )
+        elif student_t_nu <= 2:
+            raise ValueError(f"Expected nu > 2, but got {student_t_nu}.")
+        # Reassign models and class for student-t distribution
+        else:
+            residual_loss, edm_precond_super_res = tEDMResidualLoss, tEDMPrecondSuperRes
+            logger0.info(
+                f"Using student-t distribution with nu={student_t_nu}. "
+                f"This is an experimental feature and APIs may change without notice."
+            )
+
+    # Parse P_mean and P_std
+    P_mean = getattr(cfg.training.hp, "P_mean", None)
+    P_std = getattr(cfg.training.hp, "P_std", None)
+    sigma_data = getattr(cfg.training.hp, "sigma_data", None)
+    
+    patching = None
+    logger0.info("Patch-based training disabled")
+    # Instantiate the model and move to device.
+    if cfg.model.name=="regression":
+        model_args = {  # default parameters for all networks
+            "img_out_channels": img_out_channels_uq, # for bias corrector network 
+            "img_resolution": list(img_shape),
+            "use_fp16": fp16,
+            "checkpoint_level": songunet_checkpoint_level,
+        }
+        print(f"model arg: ", model_args)
+    else:
+        model_args = {  # default parameters for all networks
+        "img_out_channels": img_out_channels, # for residual and mean network 
+        "img_resolution": list(img_shape),
+        "use_fp16": fp16,
+        "checkpoint_level": songunet_checkpoint_level,
+        }
+    if hasattr(cfg.model, "model_args"):  # override defaults from config file
+        model_args.update(OmegaConf.to_container(cfg.model.model_args))
+
+    if enable_amp:
+        model_args["amp_mode"] = enable_amp
+    if cfg.model.name == "regression":
+        # this is not for regression mean, but for bias correction
+        # input : img_lr_lr, img_mean_lr
+        # GT : img_clean_lr - img_mean_lr
+        # input(16) + mean(10)+N_grid(4)
+        model = CorrDiffRegressionUNet(
+            img_in_channels=img_in_channels + model_args["N_grid_channels"],
+            **model_args,
+        )
+    elif cfg.model.name == "diffusion":
+        # add 2*img_out_channels channels for bias mean and std
+        if uq_type == "quantiles":
+            model = edm_precond_super_res(
+                img_in_channels=img_in_channels + model_args["N_grid_channels"]+2*img_out_channels,
+                **model_args,
+            )
+        elif uq_type == "rmse":
+            # add img_out_channels channels for bias mean only 
+            model = edm_precond_super_res(
+                img_in_channels=img_in_channels + model_args["N_grid_channels"]+img_out_channels,
+                **model_args,
+            )
+        else:
+            raise ValueError(f"Invalid uq type: {cfg.uq.type}")
+    else:
+        raise ValueError(f"Invalid model: {cfg.model.name}")
+
+    model.train().requires_grad_(True).to(dist.device)
+
+
+    # Enable distributed data parallel if applicable
+    if dist.world_size > 1:
+        model = DistributedDataParallel(
+            model,
+            device_ids=[dist.local_rank],
+            broadcast_buffers=True,
+            output_device=dist.device,
+            find_unused_parameters=True,  # dist.find_unused_parameters,
+            bucket_cap_mb=35,
+            gradient_as_bucket_view=True,
+            static_graph=True,
+        )
+
+    # Load the model checkpoint if applicable
+    try:
+        load_checkpoint(path=checkpoint_dir, models=model)
+    except Exception:
+        pass
+
+    # Load the regression checkpoint if applicable
+    if (
+        hasattr(cfg.training.io, "regression_checkpoint_path")
+        and cfg.training.io.regression_checkpoint_path is not None
+    ):
+        regression_checkpoint_path = to_absolute_path(
+            cfg.training.io.regression_checkpoint_path
+        )
+        if not os.path.exists(regression_checkpoint_path):
+            raise FileNotFoundError(
+                f"Expected this regression checkpoint but not found: {regression_checkpoint_path}"
+            )
+        print(f"Loading regression checkpoint from {regression_checkpoint_path}")
+        regression_net = Module.from_checkpoint(
+            regression_checkpoint_path, override_args={"use_apex_gn": False}
+        )
+        regression_net.eval().requires_grad_(False).to(dist.device)
+        logger0.success("Loaded the pre-trained regression model")
+    else:
+        regression_net = None
+        # Load the regression checkpoint if applicable
+    if (
+        hasattr(cfg.training.io, "bias_checkpoint_path")
+        and cfg.training.io.bias_checkpoint_path is not None
+    ):
+        bias_checkpoint_path = to_absolute_path(
+            cfg.training.io.bias_checkpoint_path
+        )
+        if not os.path.exists(bias_checkpoint_path):
+            raise FileNotFoundError(
+                f"Expected this bias checkpoint but not found: {bias_checkpoint_path}"
+            )
+        print(f"Loading bias checkpoint from {bias_checkpoint_path}")
+        bias_net = Module.from_checkpoint(
+            bias_checkpoint_path, override_args={"use_apex_gn": False}
+        )
+        bias_net.eval().requires_grad_(False).to(dist.device)
+
+        # import zipfile
+        # import tempfile
+
+        # bias_model_args = dict(model_args)
+        # bias_model_args["img_out_channels"] = img_out_channels_uq
+
+        # bias_net = CorrDiffRegressionUNet(
+        #     img_in_channels=img_in_channels + bias_model_args["N_grid_channels"],
+        #     **bias_model_args,
+        # )
+
+        # if zipfile.is_zipfile(bias_checkpoint_path):
+        #     with tempfile.TemporaryDirectory() as tmpdir:
+        #         with zipfile.ZipFile(bias_checkpoint_path, "r") as z:
+        #             z.extractall(tmpdir)
+
+        #         model_pt = os.path.join(tmpdir, "model.pt")
+        #         state_dict = torch.load(model_pt, map_location="cpu", weights_only=False)
+        # else:
+        #     state_dict = torch.load(bias_checkpoint_path, map_location="cpu", weights_only=False)
+
+        # missing, unexpected = bias_net.load_state_dict(state_dict, strict=False)
+
+        # print("Loaded bias checkpoint")
+        # print("Missing keys:", missing[:20])
+        # print("Unexpected keys:", unexpected[:20])
+
+        # bias_net.eval().requires_grad_(False).to(dist.device)
+    else:
+        bias_net = None
+    
+    # Compute the number of required gradient accumulation rounds
+    # It is automatically used if batch_size_per_gpu * dist.world_size < total_batch_size
+    batch_gpu_total, num_accumulation_rounds = compute_num_accumulation_rounds(
+        cfg.training.hp.total_batch_size,
+        cfg.training.hp.batch_size_per_gpu,
+        dist.world_size,
+    )
+    batch_size_per_gpu = cfg.training.hp.batch_size_per_gpu
+    logger0.info(f"Using {num_accumulation_rounds} gradient accumulation rounds")
+
+    # calculate patch per iter
+    patch_num = getattr(cfg.training.hp, "patch_num", 1)
+    patch_nums_iter = [patch_num]
+    use_patch_grad_acc = None
+
+    # Instantiate the loss function
+    if cfg.model.name in (
+        "diffusion",
+    ):
+        loss_init_kwargs = {}
+        if student_t_nu is not None:
+            loss_init_kwargs["nu"] = student_t_nu
+        if P_mean is not None:
+            loss_init_kwargs["P_mean"] = P_mean
+        if P_std is not None:
+            loss_init_kwargs["P_std"] = P_std
+        if uq_type == "rmse":
+            loss_fn = ResidualLossBiasCorrector_rmse(
+                regression_net=regression_net,
+                bias_net=bias_net,
+                hr_mean_conditioning=cfg.model.hr_mean_conditioning,
+                **loss_init_kwargs,
+            )
+        else:
+            loss_fn = VerifierQuantileScalarResidualLoss(
+                regression_net=regression_net,
+                bias_net=bias_net,
+                hr_mean_conditioning=cfg.model.hr_mean_conditioning,
+                **loss_init_kwargs,
+            )
+        
+    elif cfg.model.name == "regression":
+        if uq_type == "rmse":
+            loss_fn = RegressionLossBiasCorrector_rmse_q90(regression_net=regression_net)
+        else:
+            loss_fn = VerifierLossQuantileScalar(regression_net=regression_net, hr_mean_conditioning=cfg.model.hr_mean_conditioning)    
+    # Instantiate the optimizer
+    optimizer = torch.optim.Adam(
+        params=model.parameters(),
+        lr=cfg.training.hp.lr,
+        betas=[0.9, 0.999],
+        eps=1e-8,
+        fused=True,
+    )
+
+    # Record the current time to measure the duration of subsequent operations.
+    start_time = time.time()
+
+    ## Load optimizer checkpoint if exists
+    if dist.world_size > 1:
+        torch.distributed.barrier()
+    try:
+        load_checkpoint(
+            path=checkpoint_dir,
+            optimizer=optimizer,
+            device=dist.device,
+        )
+    except Exception:
+        pass
+
+    ############################################################################
+    #                            MAIN TRAINING LOOP                            #
+    ############################################################################
+
+    logger0.info(f"Training for {cfg.training.hp.training_duration} images...")
+    done = False
+
+    # init variables to monitor running mean of average loss since last periodic
+    average_loss_running_mean = 0
+    n_average_loss_running_mean = 1
+    start_nimg = cur_nimg
+    input_dtype = torch.float32
+    if enable_amp:
+        input_dtype = torch.float32
+    elif fp16:
+        input_dtype = torch.float16
+
+    # enable profiler:
+    with cuda_profiler():
+        with profiler_emit_nvtx():
+            while not done:
+                tick_start_nimg = cur_nimg
+                tick_start_time = time.time()
+
+                if cur_nimg - start_nimg == 24 * cfg.training.hp.total_batch_size:
+                    logger0.info(f"Starting Profiler at {cur_nimg}")
+                    cuda_profiler_start()
+
+                if cur_nimg - start_nimg == 25 * cfg.training.hp.total_batch_size:
+                    logger0.info(f"Stopping Profiler at {cur_nimg}")
+                    cuda_profiler_stop()
+
+                with nvtx.annotate("Training iteration", color="green"):
+                    # Compute & accumulate gradients
+                    optimizer.zero_grad(set_to_none=True)
+                    loss_accum = 0
+                    for n_i in range(num_accumulation_rounds):
+                        with nvtx.annotate(
+                            f"accumulation round {n_i}", color="Magenta"
+                        ):
+                            with nvtx.annotate("loading data", color="green"):
+                                img_clean, img_lr_raw, img_lr, *lead_time_label = next(
+                                    dataset_iterator
+                                )
+                                img_clean = (
+                                    img_clean.to(dist.device)
+                                    .to(input_dtype)
+                                    .contiguous()
+                                )
+                                img_lr = (
+                                    img_lr.to(dist.device)
+                                    .to(input_dtype)
+                                    .contiguous()
+                                )
+                            loss_fn_kwargs = {
+                                "net": model,
+                                "img_clean": img_clean,
+                                "img_lr": img_lr,
+                                "augment_pipe": None,
+                            }
+
+                            for patch_num_per_iter in patch_nums_iter:
+                                with nvtx.annotate(f"loss forward", color="green"):
+                                    with torch.autocast(
+                                        "cuda", dtype=amp_dtype, enabled=enable_amp
+                                    ):
+                                        loss = loss_fn(**loss_fn_kwargs)
+
+                                loss = loss.sum() / batch_size_per_gpu
+                                loss_accum += (
+                                    loss
+                                    / num_accumulation_rounds
+                                    / len(patch_nums_iter)
+                                )
+                                with nvtx.annotate(f"loss backward", color="yellow"):
+                                    loss.backward()
+
+                    with nvtx.annotate(f"loss aggregate", color="green"):
+                        loss_sum = torch.tensor([loss_accum], device=dist.device)
+                        if dist.world_size > 1:
+                            torch.distributed.barrier()
+                            torch.distributed.all_reduce(
+                                loss_sum, op=torch.distributed.ReduceOp.SUM
+                            )
+                        average_loss = (loss_sum / dist.world_size).cpu().item()
+
+                    # update running mean of average loss since last periodic task
+                    average_loss_running_mean += (
+                        average_loss - average_loss_running_mean
+                    ) / n_average_loss_running_mean
+                    n_average_loss_running_mean += 1
+
+                    if dist.rank == 0:
+                        writer.add_scalar("training_loss", average_loss, cur_nimg)
+                        writer.add_scalar(
+                            "training_loss_running_mean",
+                            average_loss_running_mean,
+                            cur_nimg,
+                        )
+
+                    ptt = is_time_for_periodic_task(
+                        cur_nimg,
+                        cfg.training.io.print_progress_freq,
+                        done,
+                        cfg.training.hp.total_batch_size,
+                        dist.rank,
+                        rank_0_only=True,
+                    )
+                    if ptt:
+                        # reset running mean of average loss
+                        average_loss_running_mean = 0
+                        n_average_loss_running_mean = 1
+
+                    # Update weights.
+                    with nvtx.annotate("update weights", color="blue"):
+                        lr_rampup = (
+                            cfg.training.hp.lr_rampup
+                        )  # ramp up the learning rate
+                        for g in optimizer.param_groups:
+                            if lr_rampup > 0:
+                                g["lr"] = cfg.training.hp.lr * min(
+                                    cur_nimg / lr_rampup, 1
+                                )
+                            if cur_nimg >= lr_rampup:
+                                g["lr"] *= cfg.training.hp.lr_decay ** (
+                                    (cur_nimg - lr_rampup)
+                                    // cfg.training.hp.lr_decay_rate
+                                )
+                            current_lr = g["lr"]
+                            if dist.rank == 0:
+                                writer.add_scalar("learning_rate", current_lr, cur_nimg)
+                        handle_and_clip_gradients(
+                            model,
+                            grad_clip_threshold=cfg.training.hp.grad_clip_threshold,
+                        )
+                    with nvtx.annotate("optimizer step", color="blue"):
+                        optimizer.step()
+
+                    cur_nimg += cfg.training.hp.total_batch_size
+                    done = cur_nimg >= cfg.training.hp.training_duration
+
+                with nvtx.annotate("validation", color="red"):
+                    # Validation
+                    if validation_dataset_iterator is not None:
+                        valid_loss_accum = 0
+                        if is_time_for_periodic_task(
+                            cur_nimg,
+                            cfg.training.io.validation_freq,
+                            done,
+                            cfg.training.hp.total_batch_size,
+                            dist.rank,
+                        ):
+                            with torch.no_grad():
+                                for _ in range(cfg.training.io.validation_steps):
+                                    (
+                                        img_clean_valid,
+                                        img_lr_raw_valid,
+                                        img_lr_valid,
+                                        *lead_time_label_valid,
+                                    ) = next(validation_dataset_iterator)
+
+                                    img_clean_valid = (
+                                        img_clean_valid.to(dist.device)
+                                        .to(input_dtype)
+                                        .contiguous()
+                                    )
+                                    img_lr_valid = (
+                                        img_lr_valid.to(dist.device)
+                                        .to(input_dtype)
+                                        .contiguous()
+                                    )
+
+                                    loss_valid_kwargs = {
+                                        "net": model,
+                                        "img_clean": img_clean_valid,
+                                        "img_lr": img_lr_valid,
+                                        "augment_pipe": None,
+                                    }
+                                    for patch_num_per_iter in patch_nums_iter:
+                                        if patching is not None:
+                                            patching.set_patch_num(patch_num_per_iter)
+                                            loss_valid_kwargs.update(
+                                                {"patching": patching}
+                                            )
+                                        with torch.autocast(
+                                            "cuda", dtype=amp_dtype, enabled=enable_amp
+                                        ):
+                                            loss_valid = loss_fn(**loss_valid_kwargs)
+
+                                        loss_valid = (
+                                            (loss_valid.sum() / batch_size_per_gpu)
+                                            .cpu()
+                                            .item()
+                                        )
+                                        valid_loss_accum += (
+                                            loss_valid
+                                            / cfg.training.io.validation_steps
+                                            / len(patch_nums_iter)
+                                        )
+                                valid_loss_sum = torch.tensor(
+                                    [valid_loss_accum], device=dist.device
+                                )
+                                if dist.world_size > 1:
+                                    torch.distributed.barrier()
+                                    torch.distributed.all_reduce(
+                                        valid_loss_sum,
+                                        op=torch.distributed.ReduceOp.SUM,
+                                    )
+                                average_valid_loss = valid_loss_sum / dist.world_size
+                                if dist.rank == 0:
+                                    writer.add_scalar(
+                                        "validation_loss", average_valid_loss, cur_nimg
+                                    )
+
+                if is_time_for_periodic_task(
+                    cur_nimg,
+                    cfg.training.io.print_progress_freq,
+                    done,
+                    cfg.training.hp.total_batch_size,
+                    dist.rank,
+                    rank_0_only=True,
+                ):
+                    # Print stats if we crossed the printing threshold with this batch
+                    tick_end_time = time.time()
+                    fields = []
+                    fields += [f"samples {cur_nimg:<9.1f}"]
+                    fields += [f"training_loss {average_loss:<7.2f}"]
+                    fields += [
+                        f"training_loss_running_mean {average_loss_running_mean:<7.2f}"
+                    ]
+                    fields += [f"learning_rate {current_lr:<7.8f}"]
+                    fields += [f"total_sec {(tick_end_time - start_time):<7.1f}"]
+                    fields += [
+                        f"sec_per_tick {(tick_end_time - tick_start_time):<7.1f}"
+                    ]
+                    fields += [
+                        f"sec_per_sample {((tick_end_time - tick_start_time) / (cur_nimg - tick_start_nimg)):<7.2f}"
+                    ]
+                    fields += [
+                        f"cpu_mem_gb {(psutil.Process(os.getpid()).memory_info().rss / 2**30):<6.2f}"
+                    ]
+                    if torch.cuda.is_available():
+                        fields += [
+                            f"peak_gpu_mem_gb {(torch.cuda.max_memory_allocated(dist.device) / 2**30):<6.2f}"
+                        ]
+                        fields += [
+                            f"peak_gpu_mem_reserved_gb {(torch.cuda.max_memory_reserved(dist.device) / 2**30):<6.2f}"
+                        ]
+                        torch.cuda.reset_peak_memory_stats()
+                    logger0.info(" ".join(fields))
+
+                # Save checkpoints
+                if dist.world_size > 1:
+                    torch.distributed.barrier()
+                if is_time_for_periodic_task(
+                    cur_nimg,
+                    cfg.training.io.save_checkpoint_freq,
+                    done,
+                    cfg.training.hp.total_batch_size,
+                    dist.rank,
+                    rank_0_only=True,
+                ):
+                    save_checkpoint(
+                        path=checkpoint_dir,
+                        models=model,
+                        optimizer=optimizer,
+                        epoch=cur_nimg,
+                    )
+
+                    # Retain only the recent n checkpoints, if desired
+                    if cfg.training.io.save_n_recent_checkpoints > 0:
+                        for suffix in [".mdlus", ".pt"]:
+                            ckpts = checkpoint_list(checkpoint_dir, suffix=suffix)
+                            while (
+                                len(ckpts) > cfg.training.io.save_n_recent_checkpoints
+                            ):
+                                os.remove(os.path.join(checkpoint_dir, ckpts[0]))
+                                ckpts = ckpts[1:]
+
+    # Done.
+    logger0.info("Training Completed.")
+
+
+if __name__ == "__main__":
+    main()
