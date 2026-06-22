@@ -33,9 +33,9 @@ defaults:
     # The base training parameters. Determined by the model type.
 
 dataset:
-    data_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc 
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc 
     # Path to .nc data file
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
     # Path to json stats file
     #dont need to traiin on surface vars but keep them in the data
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]

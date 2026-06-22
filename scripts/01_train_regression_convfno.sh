@@ -8,8 +8,8 @@ cd "${REPO_ROOT}"
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
 
 CONFIG="${CONFIG:-config_training_convfno_regression.yaml}"
-GPUS="${GPUS:-0,1}"
-NPROC="${NPROC:-1}"
+GPUS="${GPUS:-0,1,2,3}"
+NPROC="${NPROC:-4}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/convfno}"
 
 echo "Running convfno"

@@ -26,4 +26,5 @@ CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}"
   -m rematch.train_uq --config-name=$CONFIG \
   ++training.io.regression_checkpoint_path=$REG_PATH \
   ++training.io.checkpoint_dir=$CHECKPOINTS_DIR \
+  ++model.hr_mean_conditioning=true\
   ++uq.type=$UQ 

@@ -211,11 +211,16 @@ class ResidualLossBiasCorrector_quantiles(ResidualLoss):
         pred_vec = pred_vec.squeeze(-1).squeeze(-1)
         pred_vec = pred_vec.view(B, C, 2)
 
-        pred_center = pred_vec[..., 0]
-        pred_width = F.softplus(pred_vec[..., 1]) + 1e-6
+        # pred_center = pred_vec[..., 0]
+        # pred_width = F.softplus(pred_vec[..., 1]) + 1e-6
 
-        pred_qlow = pred_center - pred_width
-        pred_qhigh = pred_center + pred_width
+        # pred_qlow = pred_center - pred_width
+        # pred_qhigh = pred_center + pred_width
+
+        pred_qlow = pred_vec[...,0]
+        delta = pred_vec[..., 1]
+        pred_qhigh = pred_qlow + F.softplus(delta)
+
         return pred_qlow, pred_qhigh
 
     def __call__(
@@ -258,17 +263,19 @@ class ResidualLossBiasCorrector_quantiles(ResidualLoss):
         )
         pred_qlow, pred_qhigh = self.bias_correction_step(y_lr_res, y_mean)
         if time_flag is not None:
-
+            print("Using time flag")
             mask = time_flag[:, None].float()
             pred_qlow = pred_qlow * mask
             pred_qhigh  = pred_qhigh  * mask
+        else:
+            print("Not using time flag")
         self.y_mean = y_mean
 
         y = y - self.y_mean
 
         if self.hr_mean_conditioning:
             y_lr = torch.cat((self.y_mean, y_lr), dim=1)
-        # concat rmse and q90 
+   
         pred_qlow_map = pred_qlow[:, :, None, None].expand(-1, -1, H, W)
         pred_qhigh_map  = pred_qhigh[:, :, None, None].expand(-1, -1, H, W)
 
@@ -585,9 +592,11 @@ class VerifierLossQuantileScalar():
         # X (LATENT STATE) NEEDS TO BE SAME AS MODEL OUTPUT, WHICH IS 2*C_OUT AND NO H,W DIMS
         x = torch.zeros(B, 2*C, H, W, device=img_clean.device) 
         #print(f"in loss, latent x shape is {x.shape}")
+        if self.hr_mean_conditioning:
+            y_lr_res = torch.cat((y_lr_res, f_hat), dim=1)
+            
         out = net(x,
-                    y_lr_res, 
-                    f_hat,
+                    y_lr_res,
                     lead_time_label=lead_time_label,
                     augment_labels=augment_labels,) # is 64,20,168,168
         # pool output together to reduce dims
@@ -632,7 +641,14 @@ class VerifierQuantileScalarResidualLoss(ResidualLoss):
         # self.loss_fn_alex = lpips.LPIPS(net='alex').to(regression_net.device)
         self.hr_mean_conditioning = hr_mean_conditioning
 
+    def get_gt(self,img_clean, y_mean, alpha=0.1):
+        B,C,H,W = img_clean.shape
+        gt_bias = (img_clean - y_mean).view(B, C, -1) # B,C,H*W
+        gt_q_low  = torch.quantile(gt_bias, alpha / 2, dim=2)
+        gt_q_high = torch.quantile(gt_bias, 1-alpha/2, dim=2) # B,C
+        return gt_q_low, gt_q_high
 
+    
     def bias_correction_step(self, img_lr: torch.Tensor, img_reg: torch.Tensor) -> torch.Tensor:
         B, C, H, W = img_reg.shape
         zero_input = torch.zeros((B, 2 * C, H, W), device=img_reg.device)
@@ -691,11 +707,12 @@ class VerifierQuantileScalarResidualLoss(ResidualLoss):
             torch.zeros_like(y, device=img_clean.device),
             y_lr_res,
         )
-        pred_qlow, pred_qhigh = self.bias_correction_step(y_lr_res, y_mean)
+        # pred_qlow, pred_qhigh = self.bias_correction_step(y_lr_res, y_mean)
 
-        gt_bias = (img_clean - y_mean).view(B, C, -1) # B,C,H*W
-        gt_q_low  = torch.quantile(gt_bias, alpha / 2, dim=2)
-        gt_q_high = torch.quantile(gt_bias, 1-alpha/2, dim=2) # B,C
+        # gt_bias = (img_clean - y_mean).view(B, C, -1) # B,C,H*W
+        # gt_q_low  = torch.quantile(gt_bias, alpha / 2, dim=2)
+        # gt_q_high = torch.quantile(gt_bias, 1-alpha/2, dim=2) # B,C
+        gt_q_low, gt_q_high = self.get_gt(img_clean, y_mean, alpha)
 
         # if time_flag is not None:
         #     mask = time_flag[:, None].float()  # (B,1)

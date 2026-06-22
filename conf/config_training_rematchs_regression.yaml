@@ -38,9 +38,9 @@ model:
 # user-defined dataset class.
 dataset:
     type: hrrr_mini_raw
-    data_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc
     # Path to .nc data file
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json 
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json 
     # data_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019.nc
     # # Path to .nc data file
     # stats_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json 

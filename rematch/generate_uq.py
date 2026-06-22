@@ -235,10 +235,11 @@ def main(cfg: DictConfig) -> None:
                             cfg.generation.seed_batch_size, -1, -1, -1
                         ).to(memory_format=torch.channels_last)
                     
-                    pred_uq1, pred_uq2 = uq_step(
-                        img_lr= y_lr,
-                        img_reg=image_reg[0:1],
-                    )
+                    # pred_uq1, pred_uq2 = uq_step(
+                    #     img_lr= y_lr,
+                    #     img_reg=image_reg[0:1],
+                    # )
+                    pred_uq1, pred_uq2 = loss_fn.get_gt(image_tar, image_reg[0:1])
                     B,C,H,W = image_reg.shape
                     pred_uq1_map = pred_uq1[:, :, None, None].expand(-1, -1, H, W)
                     pred_uq2_map  = pred_uq2[:, :, None, None].expand(-1, -1, H, W)

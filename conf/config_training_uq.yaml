@@ -31,16 +31,17 @@ defaults:
     - model_size: mini #tiny
     - training: ${model}
     # The base training parameters. Determined by the model type.
-
+model:
+    hr_mean_conditioning: true
 
 # Dataset parameters. Used for `custom` dataset type.
 # Modify or add below parameters that should be passed as argument to the
 # user-defined dataset class.
 dataset:
 
-    data_path: /data/hrrr_era5_0528/hrrr_era5_calibration_2020.nc
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020.nc
     # Path to .nc data file
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json 
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json 
 
     # Path to json stats file
     #dont need to traiin on surface vars but keep them in the dta

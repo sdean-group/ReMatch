@@ -37,9 +37,9 @@ defaults:
 # Modify or add below parameters that should be passed as argument to the
 # user-defined dataset class.
 dataset:
-    data_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc
     # Path to .nc data file
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
 
     # Path to json stats file
     #dont need to traiin on surface vars but keep them in the dta

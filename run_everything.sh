@@ -31,8 +31,8 @@ run_job() {
 
     set +e
     # GPUS=4,5,6,7 NPROC=4 bash "${script}" 2>&1 | tee "${log_file}"
-    # GPUS=0,1,3 NPROC=3 bash "${script}" 2>&1 | tee "${log_file}"
-    GPUS=0,1,2,3,4,5,6,7 NPROC=8 bash "${script}" 2>&1 | tee "${log_file}"
+    GPUS=0,1,2,3 NPROC=4 bash "${script}" 2>&1 | tee "${log_file}"
+    # GPUS=0,1,2,3,4,5,6,7 NPROC=8 bash "${script}" 2>&1 | tee "${log_file}"
     
     status=${PIPESTATUS[0]}
     set -e
@@ -54,7 +54,7 @@ notify "${TOPIC_PREFIX}_all" "Started: full pipeline" "Full pipeline started on 
 # run_job "run_corrdiff" "scripts/run_corrdiff.sh"
 # run_job "run_swinir" "scripts/run_swinir.sh"
 # run_job "run_cfg" "scripts/run_cfg.sh"
-run_job "run_uq" "scripts/run_uq_quantiles.sh"
+run_job "run_uq" "scripts/run_uq_rmse.sh"
 # run_job "run_corrdiff_m" "scripts/run_corrdiff.sh"
 # run_job "run_cdm" "scripts/run_cdm.sh"
 bash scripts/05_generation.sh

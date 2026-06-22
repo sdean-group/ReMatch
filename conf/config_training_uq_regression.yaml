@@ -17,7 +17,7 @@
 hydra:
     job:
           chdir: false
-          name: swinir_regression
+          name: tiny_unet_regression
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -28,33 +28,37 @@ defaults:
 
     - dataset: hrrr_mini_raw
     - model: regression
-    - model_size: mini
+    - model_size: tiny
     - training: ${model}
-model:
-    name: swinir_regression
+    # The base training parameters. Determined by the model type.
+
 
 # Dataset parameters. Used for `custom` dataset type.
 # Modify or add below parameters that should be passed as argument to the
 # user-defined dataset class.
 dataset:
-    type: hrrr_mini_raw
-    data_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc
-    # Path to .nc data file
-    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
+    # data_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019.nc
+    # # Path to .nc data file
+    # stats_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json 
 
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc
+    # Path to .nc data file
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json 
+
+    # Path to json stats file
+    #dont need to traiin on surface vars but keep them in the dta
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
 
 # Training parameters
 training:
     hp:
-        training_duration: 100000
-        batch_size_per_gpu: 32
+        training_duration: 3000000
         # Training duration based on the number of processed samples
     io:
         print_progress_freq: 10000
         checkpoint_dir: <checkpoint_dir>
-        save_checkpoint_freq: 20000
+        save_checkpoint_freq: 1000000
 
 
 # Parameters for wandb logging
@@ -65,31 +69,3 @@ training:
 #     # Directory to store wandb results
 #     watch_model: false
 #     # If true, wandb will track model parameters and gradients
-swinir:
-    checkpoint_path: null
-    resume: null
-
-    model_args:
-        in_chans: 14
-        out_chans: 10
-        img_size: [21, 21]
-        upscale: 8
-        window_size: 7
-        embed_dim: 180
-        depths: [6, 6, 6, 6, 6, 6]
-        num_heads: [6, 6, 6, 6, 6, 6]
-        mlp_ratio: 2.0
-        drop_path_rate: 0.0
-        use_checkpoint: false
-        multi_step_sampler: true
-
-    train:
-        loss: l1
-        lr: 2.0e-4
-        weight_decay: 0.0
-        grad_clip: 0.0
-        amp: false
-        num_workers: 4
-        val_interval: 1000
-        val_batch_size: 5
-        val_max_batches: 20

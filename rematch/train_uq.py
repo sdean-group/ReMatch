@@ -47,6 +47,13 @@ except ImportError:
     )
 from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
 from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
+# DELELTE AFTER
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
 
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
