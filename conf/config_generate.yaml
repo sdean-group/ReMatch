@@ -17,7 +17,8 @@
 hydra:
     job:
           chdir: false
-          name: generate_monthly
+          # trained on 2018-2021 pressures and temporal context. select one day from each month to see the ensemble spreads
+          name: generate_600_samples
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -27,44 +28,92 @@ hydra:
 defaults:
 
     - dataset: hrrr_mini_raw
+
     - generation: non_patched
 dataset:
-    type: hrrr_mini_raw
+    # data_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020.nc
+    # # Path to .nc data file
+    # stats_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json
     data_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021.nc
     # Path to .nc data file
     stats_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021_stats.json
     # Path to json stats file
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
+    # time_flag: True
+    
 
 # Generation parameters to specialize
+bias_shape: [16,16]
 generation:
     num_ensembles: 12
     # int, number of ensembles to generate per input
     seed_batch_size: 1
-    # int, size of the batched inference
+    inference_mode: "all" # bias for CorrDiffRegressionUNet, verifier for VerifierUNet
+    hr_mean_conditioning: True
     load_all_times: False
+    # int, size of the batched inference
     times:
-        - "2021-01-02T23:00:00"
-        - "2021-02-02T23:00:00"
-        - "2021-03-02T23:00:00"
-        - "2021-04-02T23:00:00"
-        - "2021-05-02T23:00:00"
-        - "2021-06-02T23:00:00"
-        - "2021-07-02T23:00:00"
-        - "2021-08-02T23:00:00"
-        - "2021-09-02T23:00:00"
-        - "2021-10-02T23:00:00"
-        - "2021-11-02T23:00:00"
-        - "2021-12-02T23:00:00"
+    - "2021-05-02T00:00:00"
+    - "2021-05-02T01:00:00"
+    - "2021-05-02T02:00:00"
+    - "2021-05-02T03:00:00"
+    - "2021-05-02T04:00:00"
+    - "2021-05-02T05:00:00"
+    - "2021-05-02T06:00:00"
+    - "2021-05-02T07:00:00"
+    - "2021-05-02T08:00:00"
+    - "2021-05-02T09:00:00"
+    - "2021-05-02T10:00:00"
+    - "2021-05-02T11:00:00"
+    - "2021-05-02T12:00:00"
+    - "2021-05-02T13:00:00"
+    - "2021-05-02T14:00:00"
+    - "2021-05-02T15:00:00"
+    - "2021-05-02T16:00:00"
+    - "2021-05-02T17:00:00"
+    - "2021-05-02T18:00:00"
+    - "2021-05-02T19:00:00"
+    - "2021-05-02T20:00:00"
+    - "2021-05-02T21:00:00"
+    - "2021-05-02T22:00:00"
+    - "2021-05-02T23:00:00"
+    - "2021-05-03T00:00:00"
+    - "2021-05-03T01:00:00"
+    - "2021-05-03T02:00:00"
+    - "2021-05-03T03:00:00"
+    - "2021-05-03T04:00:00"
+    - "2021-05-03T05:00:00"
+    - "2021-05-03T06:00:00"
+    - "2021-05-03T07:00:00"
+    - "2021-05-03T08:00:00"
+    - "2021-05-03T09:00:00"
+    - "2021-05-03T10:00:00"
+    - "2021-05-03T11:00:00"
+    - "2021-05-03T12:00:00"
+    - "2021-05-03T13:00:00"
+    - "2021-05-03T14:00:00"
+    - "2021-05-03T15:00:00"
+    - "2021-05-03T16:00:00"
+    - "2021-05-03T17:00:00"
+    - "2021-05-03T18:00:00"
+    - "2021-05-03T19:00:00"
+    - "2021-05-03T20:00:00"
+    - "2021-05-03T21:00:00"
+    - "2021-05-03T22:00:00"
+    - "2021-05-03T23:00:00"
+
+    
+        
 
     # List[str], time stamps in ISO 8601 format. Replace and list desired target
     # time stamps.
-    # TRY THIS OUT WITH AN EARLIER CHECKPOINT TO SEE WHETHER IT ACC IMPROVED
     io:
         output_filename: ./outputs/hrrr_mini_east/ble_generation_files/corrdif_residual_2021_BLErditfix2allpressures_temporal_50samples.nc
         res_ckpt_filename: /home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus
         reg_ckpt_filename: /home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_regression/CorrDiffRegressionUNet.0.3008.mdlus
+
+
 # Parameters for wandb logging
 wandb:
     mode: offline

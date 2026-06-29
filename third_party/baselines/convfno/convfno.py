@@ -1,7 +1,8 @@
 from typing import List
 
 from physicsnemo.models.fno import FNO, FNO2DEncoder
-from physicsnemo.nn.spectral_layers import SpectralConv2d
+# from physicsnemo.nn.spectral_layers import SpectralConv2d
+from physicsnemo.models.layers.spectral_layers import SpectralConv2d
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F

@@ -5,10 +5,6 @@ import torch.nn as nn
 
 class ConvFNOLoss():
     def __init__(self):
-        """
-        Arguments
-        ----------
-        """
         return
     
     def __call__(
@@ -19,9 +15,7 @@ class ConvFNOLoss():
     ) -> torch.Tensor:
 
         y_hat = net(img_lr)
-        #print(f"DSLKFJSLFJSDLKFJDSKFJ {img_lr.shape}, {img_clean.shape}, {y_hat.shape}")
-
-        return F.mse_loss(y_hat, img_clean)
+        return (y_hat - img_clean) ** 2
     
 def convfno_step(
     net: torch.nn.Module,

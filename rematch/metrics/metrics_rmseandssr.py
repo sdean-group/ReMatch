@@ -32,6 +32,8 @@ def open_samples(f):
 
 
 def save_rmse(out_path: Path, **kwargs):
+    (out_path / "rmse").mkdir(parents=True, exist_ok=True)
+    (out_path / "ssr").mkdir(parents=True, exist_ok=True)
     for i, (title, data) in enumerate(kwargs.items()):
         print(f"----- {title} --------")
         file_path = data[0]
@@ -44,7 +46,9 @@ def save_rmse(out_path: Path, **kwargs):
         rmse_mean = b.mean(dim="time")
         ssr = a/b
         ssr_mean = spread_mean / rmse_mean
-        print(ssr_mean)
+        rmse_scalar = b.to_array().mean().item()
+        ssr_scalar = a.to_array().mean().item() / b.to_array().mean().item()
+        print(f"rmse: {rmse_scalar:.4f}, ssr: {ssr_scalar:.4f}")
         
         
         if os.path.exists(out_path / "rmse" / f"{title}_channelwise.txt"):
@@ -86,7 +90,7 @@ def save_rmse(out_path: Path, **kwargs):
             print(f"Found ssr - skipping save")
         else:
             ssr_scalar = a.to_array().mean().item() / b.to_array().mean().item()
-            with open(out / "ssr" / f"{title}.txt", "a") as f:
+            with open(out_path / "ssr" / f"{title}.txt", "a") as f:
                 f.write(f"{ssr_scalar}\n")
 
         if os.path.exists(out_path / "ssr" / f"{title}.nc"):
@@ -98,23 +102,27 @@ def save_rmse(out_path: Path, **kwargs):
                 OUT_NC.unlink()
             
             ssr.to_netcdf(OUT_NC, mode="w", engine="netcdf4")
-        print("---------------")
 
 
-out = Path("/data/hrrr_era5_0528/experiment_result/metrics/rmseandssr")
+out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/rmseandssr")
 os.makedirs(out, exist_ok=True)
-base_dir = Path("/data/hrrr_era5_0528/experiment_result")
+base_dir = Path("/mnt/hrrr_era5_0528/experiment_result")
+print(f"base dir : {base_dir}")
 save_rmse(
     out_path=out,
-    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
-    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
-    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
-    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
-    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
-    rematch_s_12=[str(base_dir / "rematch_s_12" / "600_samples.nc")],
-    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
-    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
-    unet=[str(base_dir / "unet" / "600_samples.nc")],
-    uq_quantiles=[str(base_dir / "uq_quantiles" / "600_samples.nc")],
-    uq_rmse=[str(base_dir / "uq_rmse" / "600_samples.nc")],
+    # unet_original=[str(base_dir / "unet" / "600_samples.nc")],
+    # cdm=[str(base_dir / "cdm" / "600_samples.nc")],
+    # corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
+    # corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
+    # convfno=[str(base_dir / "convfno" / "600_samples.nc")],
+    # swinir=[str(base_dir / "swinir" / "600_samples.nc")],
+    # cfg=[str(base_dir / "cfg" / "600_samples.nc")],
+    # # uq_rmse_0625=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    # # uq_quantiles_original=[str(base_dir / "uq_quantiles_nidhi" / "600_samples.nc")],
+    # uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
+    # # uq_quantiles_zero_masking=[str(base_dir / "uq_quantiles_zero" / "600_samples.nc")],
+    # uq_rmse_original=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    # # uq_rmse_zero=[str(base_dir / "uq_rmse_zero" / "600_samples.nc")],
+    # rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
+    rematch_s=[str(base_dir / "rematch_s" / "rematchs_again_600_samples.nc")],
 )

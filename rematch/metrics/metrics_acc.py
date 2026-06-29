@@ -12,7 +12,7 @@ from textwrap import wrap
 from math import floor,ceil
 import pandas as pd
 
-def open_input_output(f="/data/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc"):
+def open_input_output(f="/mnt/hrrr_era5_0528/hrrr_era5_train_2018_2020.nc"):
     root = xr.open_dataset(f)
     truth = xr.open_dataset(f, group="output")
     inp = xr.open_dataset(f, group="input")
@@ -161,7 +161,7 @@ def save_acc(out_path: Path, **kwargs):
         pred_arr = pred_da.values
         truth_arr = truth_da.values
 
-        print('starting big loop')
+        # print('starting big loop')
 
         doy = doy.astype(int) - 1   # 0-based index
         hr = hr.astype(int)
@@ -177,11 +177,11 @@ def save_acc(out_path: Path, **kwargs):
             clim_arr_list.append(clim_sel)
 
         clim_arr = np.stack(clim_arr_list, axis=1)  # (T, C, H, W)
-        print(f"clim arr shape")
-        print(clim_arr.shape)
+        # print(f"clim arr shape")
+        # print(clim_arr.shape)
 
         acc_channel, acc_scalar, acc_ds = compute_acc(pred_arr, truth_arr, clim_arr, pred_da.channel.values, pred_da.time.values)
-
+        print(acc_scalar)
    
         
         if os.path.exists(out_path  / f"{title}_channelwise.txt"):
@@ -210,22 +210,25 @@ def save_acc(out_path: Path, **kwargs):
         print("---------------")
 
 
-out = Path("/data/hrrr_era5_0528/experiment_result/metrics/acc_hrrrclimatology")
+out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/acc_hrrrclimatology")
 os.makedirs(out, exist_ok=True)
 
-base_dir = Path("/data/hrrr_era5_0528/experiment_result")
+base_dir = Path("/mnt/hrrr_era5_0528/experiment_result")
+
 
 save_acc(
     out_path=out,
-    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
-    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
-    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
-    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
-    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
-    rematch_s_12=[str(base_dir / "rematch_s_12" / "600_samples.nc")],
-    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
-    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
     unet=[str(base_dir / "unet" / "600_samples.nc")],
-    uq_quantiles=[str(base_dir / "uq_quantiles" / "600_samples.nc")],
-    uq_rmse=[str(base_dir / "uq_rmse" / "600_samples.nc")],
+    cdm=[str(base_dir / "cdm" / "600_samples.nc")],
+    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
+    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
+    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
+    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
+    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
+    # uq_rmse=[str(base_dir / "uq_rmse" / "600_samples.nc")],
+    # uq_quantiles=[str(base_dir / "uq_quantiles" / "600_samples.nc")],
+    uq_rmse_gt=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
+    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
+    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
 )

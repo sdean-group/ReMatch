@@ -116,7 +116,7 @@ def compute_lpips_stats(pred_arr: np.ndarray, truth_arr: np.ndarray, channel_coo
     
     pred_t = torch.tensor(pred_arr)
     truth_t = torch.tensor(truth_arr)
-    print(f"PRED_T SHAPE IS {pred_t.shape}, {truth_t.shape}") # shld be pred_t, truth_t → (T, C, H, W) yes!
+    #print(f"PRED_T SHAPE IS {pred_t.shape}, {truth_t.shape}") # shld be pred_t, truth_t → (T, C, H, W) yes!
     T,C,H,W = pred_t.shape
 
     #normalize images across all channels instead of each image -> this is to preserve magnitude information since a 20m/s diff should be worse than a 2 m/s. but also preserve class information
@@ -140,13 +140,13 @@ def compute_lpips_stats(pred_arr: np.ndarray, truth_arr: np.ndarray, channel_coo
     # repeat for RGB dimensions
     pred_flat = pred_norm.permute(1, 0, 2, 3).reshape(C*T, H, W).unsqueeze(1)
     truth_flat = truth_norm.permute(1, 0, 2, 3).reshape(C*T, H, W).unsqueeze(1)
-    print(f"flat arr shape {pred_flat.shape}")
+    # print(f"flat arr shape {pred_flat.shape}")
     assert (pred_norm[0,0,0,0] == pred_flat[0,0,0,0])  # should match (c0,t0)
     pred_rgb = pred_flat.repeat(1, 3, 1, 1).float()
     truth_rgb = truth_flat.repeat(1, 3, 1, 1).float()
     with torch.no_grad():
         d = loss_fn_alex(pred_rgb, truth_rgb) # outputs T*C,1,1,1
-        print(f"res shape {d.shape}")
+        # print(f"res shape {d.shape}")
 
     d = d.view(C, T)
 
@@ -337,7 +337,7 @@ def compute_lpips(pred_arr: np.ndarray, truth_arr: np.ndarray, channel_coords, t
     truth_norm = 2 * (truth_t - min_val.view(1,C,1,1)) / (max_val - min_val + 1e-6).view(1,C,1,1) - 1
     pred_norm = pred_norm.clamp(-1, 1)
     truth_norm = truth_norm.clamp(-1, 1)
-    print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
+    #print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
 
     # fig, axes = plt.subplots(2,2,
     #         subplot_kw={'projection': ccrs.PlateCarree()},
@@ -376,13 +376,13 @@ def compute_lpips(pred_arr: np.ndarray, truth_arr: np.ndarray, channel_coords, t
     # repeat for RGB dimensions
     pred_flat = pred_norm.permute(1, 0, 2, 3).reshape(C*T, H, W).unsqueeze(1)
     truth_flat = truth_norm.permute(1, 0, 2, 3).reshape(C*T, H, W).unsqueeze(1)
-    print(f"flat arr shape {pred_flat.shape}")
+    #print(f"flat arr shape {pred_flat.shape}")
     assert (pred_norm[0,0,0,0] == pred_flat[0,0,0,0])  # should match (c0,t0)
     pred_rgb = pred_flat.repeat(1, 3, 1, 1)
     truth_rgb = truth_flat.repeat(1, 3, 1, 1)
     with torch.no_grad():
         d = loss_fn_alex(pred_rgb, truth_rgb) # outputs T*C,1,1,1
-        print(f"res shape {d.shape}")
+        #print(f"res shape {d.shape}")
 
     d = d.view(C, T)
 
@@ -424,7 +424,7 @@ def save_lpips(out_path: Path, **kwargs):
 
         lpips_channel, lpips_scalar, lpips_da = compute_lpips(pred_arr, truth_arr, pred_da.channel.values, pred_da.time.values)
 
-        print(lpips_da)
+        #print(f"lpips:", lpips_scalar)
    
         
         if os.path.exists(out_path  / f"{title}_channelwise.txt"):
@@ -466,6 +466,8 @@ def compute_lpips_normalizechannel(pred_arr: np.ndarray, truth_arr: np.ndarray, 
     # 1. Flatten H and W dimensions
     pred_flat = pred_t.reshape(T,C, -1)
     truth_flat = truth_t.reshape(T,C, -1)
+    # pred_flat = pred_t.reshape(T, E, C, -1)
+    # truth_flat = truth_t.reshape(T, E, C, -1)
 
     # 2. Compute quantile over the last dimension (H*W)
     # Output shape:  (Times, Channels) -> 600,10
@@ -478,7 +480,15 @@ def compute_lpips_normalizechannel(pred_arr: np.ndarray, truth_arr: np.ndarray, 
     tlow,_=torch.min(truth_qlow, dim=0)
     phigh,_=torch.max(pred_qhigh, dim=0)
     thigh,_=torch.max(truth_qhigh, dim=0)
-  
+    # pred_qhigh = torch.quantile(pred_flat, q_high, dim=3)   # (T, E, C)
+    # truth_qhigh = torch.quantile(truth_flat, q_high, dim=3)
+    # pred_qlow = torch.quantile(pred_flat, q_low, dim=3)
+    # truth_qlow = torch.quantile(truth_flat, q_low, dim=3)
+
+    # plow = pred_qlow.amin(dim=(0, 1))       # (C,)
+    # tlow = truth_qlow.amin(dim=(0, 1))      # (C,)
+    # phigh = pred_qhigh.amax(dim=(0, 1))     # (C,)
+    # thigh = truth_qhigh.amax(dim=(0, 1))    # (C,)
 
     min_val = torch.minimum(plow, tlow) # 10
     max_val = torch.maximum(phigh, thigh)
@@ -486,7 +496,7 @@ def compute_lpips_normalizechannel(pred_arr: np.ndarray, truth_arr: np.ndarray, 
 
     pred_norm = 2 * (pred_t - min_val.view(1,1,C,1,1)) / (max_val - min_val + 1e-6).view(1,1,C,1,1) - 1
     truth_norm = 2 * (truth_t - min_val.view(1,1,C,1,1)) / (max_val - min_val + 1e-6).view(1,1,C,1,1) - 1
-    print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
+    #print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
     pred_norm = pred_norm.clamp(-1, 1) # T,E,C,H,W
     truth_norm = truth_norm.clamp(-1, 1) # T,E,C,H,W
  
@@ -527,18 +537,19 @@ def compute_lpips_normalizechannel(pred_arr: np.ndarray, truth_arr: np.ndarray, 
     # repeat for RGB dimensions
     pred_flat = pred_norm.permute(0,1,2,3,4).reshape(T*E*C, H, W).unsqueeze(1)
     truth_flat = truth_norm.permute(0,1,2,3,4).reshape(T*E*C, H, W).unsqueeze(1)
-    print(f"flat arr shape {pred_flat.shape}")
+    #print(f"flat arr shape {pred_flat.shape}")
     assert (pred_norm[0,0,0,0,0] == pred_flat[0,0,0,0])  # should match (c0,t0)
     pred_rgb = pred_flat.repeat(1, 3, 1, 1)
     truth_rgb = truth_flat.repeat(1, 3, 1, 1)
     with torch.no_grad():
         d = loss_fn_alex(pred_rgb, truth_rgb) # outputs T*E*C,1,1,1
-        print(f"res shape {d.shape}")
+        #print(f"res shape {d.shape}")
 
     d = d.view(T,E,C)
 
     lpips_channel = d.mean(dim=(0,1))   # (C,)
     lpips_scalar = d.mean().item()  # scalar
+    lpips_ensemble=d.mean(dim=(0,2))
     lpips_time_channel = d.mean(dim=1)  # average over ensemble → (T, C)
 
     lpips_da = xr.DataArray(
@@ -553,7 +564,7 @@ def compute_lpips_normalizechannel(pred_arr: np.ndarray, truth_arr: np.ndarray, 
 )
     lpips_ds = lpips_da.to_dataset(dim="channel")
 
-    return lpips_channel, lpips_scalar, lpips_ds
+    return lpips_channel, lpips_scalar, lpips_ds, lpips_ensemble
 
 
 
@@ -591,7 +602,7 @@ def compute_lpips_normalizeensembleandchannel(pred_arr: np.ndarray, truth_arr: n
 
     pred_norm = 2 * (pred_t - min_val.view(1,E,C,1,1)) / (max_val - min_val + 1e-6).view(1,E,C,1,1) - 1
     truth_norm = 2 * (truth_t - min_val.view(1,E,C,1,1)) / (max_val - min_val + 1e-6).view(1,E,C,1,1) - 1
-    print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
+    # print(f"pred norm max and min shld be -1,1: {pred_norm.max(), pred_norm.min()}") # <-checked this its good
     pred_norm = pred_norm.clamp(-1, 1) # T,E,C,H,W
     truth_norm = truth_norm.clamp(-1, 1) # T,E,C,H,W
  
@@ -632,17 +643,18 @@ def compute_lpips_normalizeensembleandchannel(pred_arr: np.ndarray, truth_arr: n
     # repeat for RGB dimensions
     pred_flat = pred_norm.permute(0,1,2,3,4).reshape(T*E*C, H, W).unsqueeze(1)
     truth_flat = truth_norm.permute(0,1,2,3,4).reshape(T*E*C, H, W).unsqueeze(1)
-    print(f"flat arr shape {pred_flat.shape}")
+    # print(f"flat arr shape {pred_flat.shape}")
     assert (pred_norm[0,0,0,0,0] == pred_flat[0,0,0,0])  # should match (c0,t0)
     pred_rgb = pred_flat.repeat(1, 3, 1, 1)
     truth_rgb = truth_flat.repeat(1, 3, 1, 1)
     with torch.no_grad():
         d = loss_fn_alex(pred_rgb, truth_rgb) # outputs T*E*C,1,1,1
-        print(f"res shape {d.shape}")
+        # print(f"res shape {d.shape}")
 
     d = d.view(T,E,C)
 
     lpips_channel = d.mean(dim=(0,1))   # (C,)
+    lpips_ensemble = d.mean(dim=(0,2))
     lpips_scalar = d.mean().item()  # scalar
     lpips_time_channel = d.mean(dim=1)  # average over ensemble → (T, C)
 
@@ -658,7 +670,7 @@ def compute_lpips_normalizeensembleandchannel(pred_arr: np.ndarray, truth_arr: n
 )
     lpips_ds = lpips_da.to_dataset(dim="channel")
 
-    return lpips_channel, lpips_scalar, lpips_ds
+    return lpips_channel, lpips_scalar, lpips_ds, lpips_ensemble
 
 
 def save_lpips_ensemble(out_path: Path, **kwargs):
@@ -676,13 +688,36 @@ def save_lpips_ensemble(out_path: Path, **kwargs):
         pred_da = pred_da.transpose("time", "ensemble", "channel", "y", "x")
         truth_da = truth_da.expand_dims({"ensemble": pred_da.ensemble})
         truth_da = truth_da.transpose("time", "ensemble", "channel", "y", "x")
+        # pred_da = pred_da.isel(ensemble=[0])
+        # truth_da = truth_da.isel(ensemble=[0])
         pred_arr = pred_da.values
         truth_arr = truth_da.values
 
-        lpips_channel, lpips_scalar, lpips_da = compute_lpips_normalizechannel(pred_arr, truth_arr, pred_da.channel.values, pred_da.time.values)
+        lpips_channel, lpips_scalar, lpips_da, lpips_ensemble = compute_lpips_normalizeensembleandchannel(pred_arr, truth_arr, pred_da.channel.values, pred_da.time.values)
+        # print(f"ensemble-wise lpips")
+        print(lpips_scalar)
+        # pred_mean = pred.mean(dim="ensemble")
 
-        print(lpips_da)
-   
+        # pred_da = pred_mean.to_array(dim="channel")
+        # truth_da = truth.to_array(dim="channel")
+
+        # pred_da = pred_da.transpose("time", "channel", "y", "x")
+        # truth_da = truth_da.transpose("time", "channel", "y", "x")
+
+        # # Add fake ensemble dim E=1
+        # pred_da = pred_da.expand_dims({"ensemble": [0]}).transpose("time", "ensemble", "channel", "y", "x")
+        # truth_da = truth_da.expand_dims({"ensemble": [0]}).transpose("time", "ensemble", "channel", "y", "x")
+
+        # pred_arr = pred_da.values
+        # truth_arr = truth_da.values
+
+        # lpips_channel, lpips_scalar, lpips_da = compute_lpips_normalizechannel(
+        #     pred_arr,
+        #     truth_arr,
+        #     pred_da.channel.values,
+        #     pred_da.time.values,
+        # )
+        # print(lpips_da)
         
         if os.path.exists(out_path  / f"{title}_channelwise.txt"):
             print(f"Found channelwise rmse - skipping save")
@@ -690,40 +725,48 @@ def save_lpips_ensemble(out_path: Path, **kwargs):
             with open(out_path  / f"{title}_channelwise.txt", "a") as f:
                 for i, var in enumerate(pred.data_vars):
                     f.write(f"{var}: {lpips_channel[i]}\n")
-
-        if os.path.exists(out_path / f"{title}.txt"):
-            print(f"Found lpips - skipping save")
+        if os.path.exists(out_path  / f"{title}_ensemblewise.txt"):
+            print(f"Found ensemble wise rmse - skipping save")
         else:
-            with open(out_path / f"{title}.txt", "a") as f:
-                f.write(f"{lpips_scalar}\n")
-
-        if os.path.exists(out_path / f"{title}.nc"):
-            print(f"Found metrics NC file - skipping save")
-        else:
-            OUT_NC = out_path /  f"{title}.nc"
-            OUT_NC.parent.mkdir(parents=True, exist_ok=True)
-            if OUT_NC.exists():
-                OUT_NC.unlink()
+            with open(out_path  / f"{title}_ensemble_wise.txt", "a") as f:
+                for i, var in enumerate(pred_da.ensemble.values):
+                    f.write(f"{var}: {lpips_ensemble[i]}\n")
             
-            lpips_da.to_netcdf(OUT_NC, mode="w", engine="netcdf4")
+
+            if os.path.exists(out_path / f"{title}.txt"):
+                print(f"Found lpips - skipping save")
+            else:
+                with open(out_path / f"{title}.txt", "a") as f:
+                    f.write(f"{lpips_scalar}\n")
+
+            if os.path.exists(out_path / f"{title}.nc"):
+                print(f"Found metrics NC file - skipping save")
+            else:
+                OUT_NC = out_path /  f"{title}.nc"
+                OUT_NC.parent.mkdir(parents=True, exist_ok=True)
+                if OUT_NC.exists():
+                    OUT_NC.unlink()
+                
+                lpips_da.to_netcdf(OUT_NC, mode="w", engine="netcdf4")
 
         print("---------------")
 
 
-out = Path("/data/hrrr_era5_0528/experiment_result/metrics/lpips_channelnorm")
+out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/lpips")
 os.makedirs(out, exist_ok=True)
-base_dir = Path("/data/hrrr_era5_0528/experiment_result")
+base_dir = Path("/mnt/hrrr_era5_0528/experiment_result")
+
 save_lpips_ensemble(
     out_path=out,
-    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
-    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
-    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
-    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
-    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
-    rematch_s_12=[str(base_dir / "rematch_s_12" / "600_samples.nc")],
-    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
-    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
     unet=[str(base_dir / "unet" / "600_samples.nc")],
-    uq_quantiles=[str(base_dir / "uq_quantiles" / "600_samples.nc")],
-    uq_rmse=[str(base_dir / "uq_rmse" / "600_samples.nc")],
+    cdm=[str(base_dir / "cdm" / "600_samples.nc")],
+    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
+    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
+    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
+    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
+    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
+    uq_rmse_gt=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
+    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
+    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
 )

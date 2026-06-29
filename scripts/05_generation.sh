@@ -61,7 +61,8 @@ set -euo pipefail
 
 export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 
-CONFIG="${CONFIG:-config_generate_600_samples.yaml}"
+# CONFIG="${CONFIG:-config_generate_600_samples.yaml}"
+CONFIG="${CONFIG:-config_generate.yaml}"
 NUM_ENSEMBLES="${NUM_ENSEMBLES:-12}"
 
 # mkdir -p logs/generate
@@ -85,7 +86,7 @@ run_generate () {
             --nproc_per_node=1 \
             -m rematch.generate_swinir \
             --config-name="${CONFIG}" \
-            ++generation.io.output_filename="${SAVE_DIR}/600_samples.nc" \
+            ++generation.io.output_filename="${SAVE_DIR}/20210602_20210603_48H.nc" \
             ++generation.io.reg_ckpt_filename="${REGRESSION_BASELINE}" \
             ++generation.io.res_ckpt_filename="${DIFFUSION_BASELINE}" \
             ++generation.num_ensembles="${NUM_ENSEMBLES}" \
@@ -95,12 +96,12 @@ run_generate () {
     echo $!
 }
 
-# PID_REMATCH_U=$(run_generate \
-#     "rematch_u" \
-#     "0" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-#     "/mnt/hrrr_era5_0528/experiment_result/rematch_u")
+PID_REMATCH_U=$(run_generate \
+    "rematch_u" \
+    "0" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+    "/mnt/hrrr_era5_0528/experiment_result/rematch_u_again")
 
 # PID_CORRDIFF=$(run_generate \
 #     "corrdiff_m" \
@@ -109,11 +110,11 @@ run_generate () {
 #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff_m/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
 #     "/mnt/hrrr_era5_0528/experiment_result/corrdiff_m")
 
-# PID_REMATCH_U=$(run_generate \
-#     "rematch_s" \
-#     "2" \
+# PID_REMATCH_S=$(run_generate \
+#     "rematch_s_600" \
+#     "3" \
 #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_regression/swinir_step_00100000.pt" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
 #     "/mnt/hrrr_era5_0528/experiment_result/rematch_s")
 # PID_CFG=$(run_generate \
 #     "cfg" \
@@ -121,12 +122,12 @@ run_generate () {
 #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_regression/UNet.0.8000000.mdlus" \
 #     "/home/nvidia/projects/ReMatch/outputs/checkpoints/cfg/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
 #     "/data/hrrr_era5_0528/experiment_result/cfg")
-# PID_CORRDIFF=$(run_generate \
-#     "corrdiff" \
-#     "4" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff/checkpoints_regression/UNet.0.8000000.mdlus" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-#     "/mnt/hrrr_era5_0528/experiment_result/corrdiff")
+PID_CORRDIFF=$(run_generate \
+    "corrdiff" \
+    "4" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff/checkpoints_regression/UNet.0.8000000.mdlus" \
+    "/home/nvidia/projects/ReMatch/outputs/checkpoints/corrdiff/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+    "/mnt/hrrr_era5_0528/experiment_result/corrdiff")
 # echo "Started jobs:"
 # echo "  rematch_u PID=${PID_REMATCH_U}"
 # echo "  corrdiff  PID=${PID_CORRDIFF}"
@@ -203,8 +204,8 @@ run_generate_convfno () {
 
 # PID_CONVFNO=$(run_generate_convfno \
 #     "convfno" \
-#     "6" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/convfno/checkpoints_regression/UNet.0.8000000.mdlus" \
+#     "1" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/convfno/checkpoints_regression/FourierNeuralOperator.0.8000000.mdlus" \
 #     "/mnt/hrrr_era5_0528/experiment_result/convfno")
 
 run_generate_swinir () {
@@ -323,24 +324,47 @@ run_generate () {
     echo $!
 }
 
-PID_UQ_RMSE=$(run_generate \
-    "uq_rmse" \
-    "0" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse/checkpoints_regression/UNet.0.8000000.mdlus" \
-    "rmse"\
-    "/mnt/hrrr_era5_0528/experiment_result/uq_rmse")
-
+# PID_UQ_RMSE=$(run_generate \
+#     "uq_rmse" \
+#     "0" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_regression/checkpoints_regression/UNet.0.3000064.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse/checkpoints_regression/UNet.0.8000000.mdlus" \
+#     "rmse"\
+#     "/mnt/hrrr_era5_0528/experiment_result/uq_rmse")
+# PID_UQ_RMSE=$(run_generate \
+#     "uq_rmse" \
+#     "0" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse_0625/checkpoints_diffusion_zero2018-2019/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_rmse_0625/checkpoints_regression/UNet.0.8000000.mdlus" \
+#     "rmse"\
+#     "/mnt/hrrr_era5_0528/experiment_result/uq_rmse_zero")
 # PID_UQ_QUANTILES=$(run_generate \
 #     "uq_quantiles" \
 #     "2" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_regression/UNet.0.3000064.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_regression/checkpoints_regression/UNet.0.3000064.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_diffusion/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles/checkpoints_regression/UNet.0.8000000.mdlus" \
 #     "quantiles"\
-#     "/data/hrrr_era5_0528/experiment_result/uq_quantiles_calibration")
+#     "/data/hrrr_era5_0528/experiment_result/uq_quantiles")
 
+# PID_UQ_QUANTILES=$(run_generate \
+#     "uq_quantiles_gt" \
+#     "2" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles_backup/checkpoints_diffusion_gt2018-2020/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles_backup/checkpoints_verifier/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "quantiles"\
+#     "/mnt/hrrr_era5_0528/experiment_result/uq_quantiles_gt")
+# PID_UQ_QUANTILES=$(run_generate \
+#     "uq_quantiles_zero" \
+#     "3" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles_backup/checkpoints_diffusion_zero2018-2019/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/home/nvidia/projects/ReMatch/outputs/checkpoints/uq_quantiles_backup/checkpoints_verifier/checkpoints_regression/UNet.0.8000000.mdlus"\
+#     "quantiles"\
+#     "/mnt/hrrr_era5_0528/experiment_result/uq_quantiles_zero")
 # echo "Started jobs:"
 # echo "  rematch_u PID=${PID_UQ_RMSE}"
 # echo "  corrdiff  PID=${PID_UQ_QUANTILES}"

@@ -12,10 +12,11 @@ GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
 
 REG_DIR="${REG_DIR:-/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u}"
-CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/uq_rmse}"
-UQ="${UQ:-rmse}"
+CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/uq_quantiles_backup}"
+UQ="${UQ:-quantiles}"
 
 echo "Running diffusion from regression model"
+echo "UQ_TYPE=${UQ}"
 echo "REG_DIR=${REG_DIR}"
 echo "CHECKPOINTS_DIR=${CHECKPOINTS_DIR}"
 echo "CONFIG=${CONFIG}"
@@ -29,6 +30,7 @@ REG_PATH=$(
 )
 
 UQ_PATH=$(
+  # ls -1 "${CHECKPOINTS_DIR}/checkpoints_verifier/checkpoints_regression"/UNet.0.*.mdlus 2>/dev/null \
   ls -1 "${CHECKPOINTS_DIR}/checkpoints_regression"/UNet.0.*.mdlus 2>/dev/null \
   | sort -V \
   | tail -n 1
@@ -53,7 +55,8 @@ CUDA_VISIBLE_DEVICES="${GPUS}" torchrun \
   -m rematch.train_uq\
   --config-name="${CONFIG}" \
   ++hydra.job.name="uq_quantiles_diffusion"\
-  "++training.io.checkpoint_dir=${CHECKPOINTS_DIR}" \
+  "++training.io.checkpoint_dir=${CHECKPOINTS_DIR}/checkpoints_diffusion_zero2018-2019" \
   "++training.io.regression_checkpoint_path=${REG_PATH}" \
   "++training.io.bias_checkpoint_path=${UQ_PATH}"\
+  "++dataset.time_flag=True"\
   ++uq.type=$UQ

@@ -64,7 +64,8 @@ def main(cfg: DictConfig) -> None:
     logger.file_logging("generate.log")
 
     # Handle the batch size
-    seeds = list(np.arange(cfg.generation.num_ensembles))
+    # seeds = list(np.arange(cfg.generation.num_ensembles))
+    seeds = list(range(24, 24 + cfg.generation.num_ensembles))
     num_batches = (
         (len(seeds) - 1) // (cfg.generation.seed_batch_size * dist.world_size) + 1
     ) * dist.world_size

@@ -113,7 +113,7 @@ def main(cfg: DictConfig) -> None:
 
     # Initialize loggers
     if dist.rank == 0:
-        writer = SummaryWriter(log_dir="tensorboard")
+        writer = SummaryWriter(log_dir=f"tensorboard/{HydraConfig.get().job.name}")
     logger = PythonLogger("main")  # General python logger
     logger0 = RankZeroLoggingWrapper(logger, dist)  # Rank 0 logger
 
@@ -186,8 +186,8 @@ def main(cfg: DictConfig) -> None:
     img_in_channels = dataset_channels
     img_shape = dataset.image_shape()
     img_out_channels = len(dataset.output_channels())
-    if cfg.model.hr_mean_conditioning:
-        img_in_channels += img_out_channels
+    # if cfg.model.hr_mean_conditioning:
+    #     img_in_channels += img_out_channels
 
 
     # Instantiate the model and move to device.
@@ -207,7 +207,7 @@ def main(cfg: DictConfig) -> None:
 
     # NOTE: make this a config var
     # values from default settings of their train.py
-    
+
     model = ConvFNO(
         nfeats=cfg.convfno.arch.fno.latent_channels,
         kernel_size=cfg.convfno.arch.fno.kernel_size,
@@ -295,13 +295,13 @@ def main(cfg: DictConfig) -> None:
     # Instantiate the optimizer
     optimizer = Adam(
         params=model.parameters(),
-        lr=cfg.training.arch.scheduler.initial_lr,
+        lr=cfg.convfno.arch.scheduler.initial_lr,
         betas=[0.9, 0.999],
         eps=1e-8,
         fused=True,
     )
     scheduler = lr_scheduler.ExponentialLR(
-        optimizer, gamma=(cfg.training.arch.scheduler.decay_rate) ** (1.0 / cfg.training.arch.scheduler.decay_steps)
+        optimizer, gamma=(cfg.convfno.arch.scheduler.decay_rate) ** (1.0 / cfg.convfno.arch.scheduler.decay_steps)
     )
 
     # Record the current time to measure the duration of subsequent operations.
@@ -374,10 +374,15 @@ def main(cfg: DictConfig) -> None:
                                     .to(input_dtype)
                                     .contiguous()
                                 )
+                                img_lr_raw = (
+                                    img_lr_raw.to(dist.device)
+                                    .to(input_dtype)
+                                    .contiguous()
+                                )
                             loss_fn_kwargs = {
                                 "net": model,
                                 "img_clean": img_clean,
-                                "img_lr": img_lr,
+                                "img_lr": img_lr_raw,
                             }
 
 
@@ -492,11 +497,15 @@ def main(cfg: DictConfig) -> None:
                                         .to(input_dtype)
                                         .contiguous()
                                     )
-
+                                    img_lr_raw_valid = (
+                                        img_lr_valid.to(dist.device)
+                                        .to(input_dtype)
+                                        .contiguous()
+                                    )
                                     loss_valid_kwargs = {
                                         "net": model,
                                         "img_clean": img_clean_valid,
-                                        "img_lr": img_lr_valid,
+                                        "img_lr": img_lr_raw_valid,
                                     }
                                     if lead_time_label_valid:
                                         lead_time_label_valid = (

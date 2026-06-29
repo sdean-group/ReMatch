@@ -17,7 +17,7 @@
 hydra:
     job:
           chdir: false
-          name: convFNO_regression
+          name: convFNO
     run:
           dir: ./hydra/${hydra:job.name}
     searchpath:
@@ -56,17 +56,17 @@ convfno:
         decoder:
             out_features: 10
             layers: 1
-            layer_size : 34 # this is also nfeats i think.  was 32, changing to 34 to match BlasetNet 5M param count
+            layer_size : 32 # this is also nfeats i think.  was 32, changing to 34 to match BlasetNet 5M param count
             upscale: 8
 
         fno:
             in_channels: 14
             dimension: 2
-            latent_channels: 34 # this is nfeats. also was 32.
+            latent_channels: 32 # this is nfeats. also was 32.
             kernel_size: 3 # blastnet added this
-            fno_layers: 32 # was 4 but blastnet did 32
-            fno_modes: 2 #was 12 but blastnet does 2
-            padding: 6 # was 9 but blastent did 6
+            fno_layers: 4 # was 4 but blastnet did 32
+            fno_modes: 12 #was 12 but blastnet does 2
+            padding: 9 # was 9 but blastent did 6
         scheduler:
             initial_lr: 4.E-3
             decay_rate: .95

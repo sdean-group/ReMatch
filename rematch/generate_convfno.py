@@ -52,6 +52,7 @@ from third_party.helpers.generate_helpers import (
 )
 from third_party.datasets.dataset import register_dataset
 from third_party.baselines.convfno.convfno_loss import convfno_step
+from third_party.baselines.convfno.convfno import ConvFNO
 
 
 def load_model_checkpoint(checkpoint_path, model, device):
@@ -188,6 +189,7 @@ def main(cfg: DictConfig) -> None:
         # Disable AMP for inference (even if model is trained with AMP)
         if hasattr(net_reg, "amp_mode"):
             net_reg.amp_mode = False
+        print(net_reg)
     else:
         net_reg = None
 
@@ -405,6 +407,11 @@ def main(cfg: DictConfig) -> None:
                     .to(torch.float32)
                     .to(memory_format=torch.channels_last)
                 )
+                image_lr_upsampled = (
+                    image_lr_upsampled.to(device=device)
+                    .to(torch.float32)
+                    .to(memory_format=torch.channels_last)
+                )
                 image_tar = image_tar.to(device=device).to(torch.float32)
                 image_out, image_res, image_reg = generate_fn(time=times[dataset_index])
                 if dist.rank == 0:
@@ -419,7 +426,7 @@ def main(cfg: DictConfig) -> None:
                                 list(times),
                                 image_out.cpu(),
                                 image_tar.cpu(),
-                                image_lr.cpu(),
+                                image_lr_upsampled.cpu(),
                                 time_index,
                                 dataset_index,
                                 image_res=image_res.cpu() if image_res is not None else None,
@@ -435,7 +442,7 @@ def main(cfg: DictConfig) -> None:
                             list(times),
                             image_out.cpu(),
                             image_tar.cpu(),
-                            image_lr.cpu(),
+                            image_lr_upsampled.cpu(),
                             time_index,
                             dataset_index,
                             image_res=image_res.cpu() if image_res is not None else None,

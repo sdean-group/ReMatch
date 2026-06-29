@@ -5,7 +5,10 @@ GPUS="${GPUS:-0,1}"
 NPROC="${NPROC:-1}"
 OUTPUT_DIR="./outputs"
 CHECKPOINTS_DIR="${OUTPUT_DIR}/checkpoints/uq_quantiles"
-REG_DIR="${OUTPUT_DIR}/checkpoints/rematch_u"
+# REG_DIR="${OUTPUT_DIR}/checkpoints/rematch_u"
+
+REG_DIR="${OUTPUT_DIR}/checkpoints/uq_regression"
+CONFIG_FILE_REG="config_training_uq_regression.yaml"
 
 CONFIG_FILE_UQ="config_training_uq.yaml"
 CONFIG_FILE_DIFF="config_training_corrdiff_diffusion.yaml"

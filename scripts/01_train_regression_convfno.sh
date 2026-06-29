@@ -15,6 +15,6 @@ CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-./outputs/checkpoints/convfno}"
 echo "Running convfno"
 
 CUDA_VISIBLE_DEVICES="${GPUS}" torchrun --standalone --nproc_per_node="${NPROC}" \
-  -m rematch.train \
+  -m rematch.train_convfno \
   --config-name="${CONFIG}" \
   ++training.io.checkpoint_dir="${CHECKPOINTS_DIR}" 

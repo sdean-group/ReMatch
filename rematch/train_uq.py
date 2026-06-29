@@ -47,13 +47,6 @@ except ImportError:
     )
 from physicsnemo.experimental.metrics.diffusion import tEDMResidualLoss
 from physicsnemo.experimental.models.diffusion.preconditioning import tEDMPrecondSuperRes
-# DELELTE AFTER
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
 
 from third_party.datasets.dataset import init_train_valid_datasets_from_config, register_dataset
 from third_party.helpers.train_helpers import (
@@ -64,9 +57,8 @@ from third_party.helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse
-# from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_quantiles, ResidualLossBiasCorrector_quantiles
-from third_party.baselines.uncertainty_quantification.uq_loss import VerifierLossQuantileScalar, VerifierQuantileScalarResidualLoss
+from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_rmse_q90, ResidualLossBiasCorrector_rmse, RegressionLossBiasCorrector_rmse
+from third_party.baselines.uncertainty_quantification.uq_loss import RegressionLossBiasCorrector_quantiles, ResidualLossBiasCorrector_quantiles
 torch._dynamo.reset()
 # Increase the cache size limit
 torch._dynamo.config.cache_size_limit = 264  # Set to a higher value
@@ -199,7 +191,10 @@ def main(cfg: DictConfig) -> None:
     # for bias correction map generation, just channel length 
     img_out_channels = len(dataset.output_channels())
     # for bias mean/std estimation, double the channel and do pooling for each channl, one for mean, and one for std 
-    img_out_channels_uq = len(dataset.output_channels()) * 2
+    if uq_type == "quantiles":
+        img_out_channels_uq = len(dataset.output_channels()) * 2
+    else:
+        img_out_channels_uq = len(dataset.output_channels()) 
     if cfg.model.hr_mean_conditioning:
         img_in_channels += img_out_channels
 
@@ -410,7 +405,7 @@ def main(cfg: DictConfig) -> None:
                 **loss_init_kwargs,
             )
         else:
-            loss_fn = VerifierQuantileScalarResidualLoss(
+            loss_fn = ResidualLossBiasCorrector_quantiles(
                 regression_net=regression_net,
                 bias_net=bias_net,
                 hr_mean_conditioning=cfg.model.hr_mean_conditioning,
@@ -419,9 +414,9 @@ def main(cfg: DictConfig) -> None:
         
     elif cfg.model.name == "regression":
         if uq_type == "rmse":
-            loss_fn = RegressionLossBiasCorrector_rmse_q90(regression_net=regression_net)
+            loss_fn = RegressionLossBiasCorrector_rmse(regression_net=regression_net)
         else:
-            loss_fn = VerifierLossQuantileScalar(regression_net=regression_net, hr_mean_conditioning=cfg.model.hr_mean_conditioning)    
+            loss_fn = RegressionLossBiasCorrector_quantiles(regression_net=regression_net)    
     # Instantiate the optimizer
     optimizer = torch.optim.Adam(
         params=model.parameters(),
@@ -487,9 +482,17 @@ def main(cfg: DictConfig) -> None:
                             f"accumulation round {n_i}", color="Magenta"
                         ):
                             with nvtx.annotate("loading data", color="green"):
-                                img_clean, img_lr_raw, img_lr, *lead_time_label = next(
-                                    dataset_iterator
-                                )
+                                if cfg.dataset.time_flag:
+                                    img_clean, img_lr_raw, img_lr, time_flag, *lead_time_label = next(
+                                        dataset_iterator
+                                    )
+                                    time_flag = time_flag.to(dist.device).contiguous()
+                                else:
+                                    img_clean, img_lr_raw, img_lr, *lead_time_label = next(
+                                        dataset_iterator
+                                    )
+                                    time_flag = None
+                               
                                 img_clean = (
                                     img_clean.to(dist.device)
                                     .to(input_dtype)
@@ -506,6 +509,9 @@ def main(cfg: DictConfig) -> None:
                                 "img_lr": img_lr,
                                 "augment_pipe": None,
                             }
+
+                            if time_flag is not None: 
+                                loss_fn_kwargs.update({"time_flag": time_flag})
 
                             for patch_num_per_iter in patch_nums_iter:
                                 with nvtx.annotate(f"loss forward", color="green"):

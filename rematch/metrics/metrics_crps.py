@@ -42,7 +42,7 @@ def save_crps(out_path: Path, **kwargs):
         dim = ["x", "y"]
         
         b = xskillscore.crps_ensemble(truth, pred, member_dim="ensemble", dim=dim)
-        print(b)
+        print(b.to_array().mean().item())
         
         if os.path.exists(out_path / f"{title}_channelwise.txt"):
             print(f"Found channelwise metric - skipping save")
@@ -73,21 +73,21 @@ def save_crps(out_path: Path, **kwargs):
 
 # verified that crps for deterministic models equals the MAE
 
-out = Path("/data/hrrr_era5_0528/experiment_result/metrics/crps")
+out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/crps")
 os.makedirs(out, exist_ok=True)
-base_dir = Path("/data/hrrr_era5_0528/experiment_result")
+base_dir = Path("/mnt/hrrr_era5_0528/experiment_result")
 
 save_crps(
     out_path=out,
-    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
-    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
-    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
-    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
-    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
-    rematch_s_12=[str(base_dir / "rematch_s_12" / "600_samples.nc")],
-    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
-    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
     unet=[str(base_dir / "unet" / "600_samples.nc")],
-    uq_quantiles=[str(base_dir / "uq_quantiles" / "600_samples.nc")],
-    uq_rmse=[str(base_dir / "uq_rmse" / "600_samples.nc")],
+    cdm=[str(base_dir / "cdm" / "600_samples.nc")],
+    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
+    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
+    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
+    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
+    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
+    uq_rmse_gt=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
+    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
+    rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
 )

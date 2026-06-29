@@ -46,7 +46,7 @@ from third_party.helpers.generate_helpers import (
 )
 from third_party.datasets.dataset import register_dataset
 
-from third_party.baselines.uncertainty_quantification.uq_loss import VerifierQuantileScalarResidualLoss, ResidualLossBiasCorrector_rmse
+from third_party.baselines.uncertainty_quantification.uq_loss import ResidualLossBiasCorrector_quantiles, ResidualLossBiasCorrector_rmse
 @hydra.main(version_base="1.2", config_path="../conf", config_name="config_generate")
 def main(cfg: DictConfig) -> None:
     """Generate random images using the techniques described in the paper
@@ -194,7 +194,7 @@ def main(cfg: DictConfig) -> None:
             hr_mean_conditioning=cfg.generation.hr_mean_conditioning,
         )
     else:
-        loss_fn = VerifierQuantileScalarResidualLoss(
+        loss_fn = ResidualLossBiasCorrector_quantiles(
             regression_net=net_reg,
             bias_net=net_bias,
             hr_mean_conditioning=cfg.generation.hr_mean_conditioning,
@@ -235,11 +235,11 @@ def main(cfg: DictConfig) -> None:
                             cfg.generation.seed_batch_size, -1, -1, -1
                         ).to(memory_format=torch.channels_last)
                     
-                    # pred_uq1, pred_uq2 = uq_step(
-                    #     img_lr= y_lr,
-                    #     img_reg=image_reg[0:1],
-                    # )
-                    pred_uq1, pred_uq2 = loss_fn.get_gt(image_tar, image_reg[0:1])
+                    pred_uq1, pred_uq2 = uq_step(
+                        img_lr= y_lr,
+                        img_reg=image_reg[0:1],
+                    )
+                    # pred_uq1, pred_uq2 = loss_fn.get_gt(image_tar, image_reg[0:1])
                     B,C,H,W = image_reg.shape
                     pred_uq1_map = pred_uq1[:, :, None, None].expand(-1, -1, H, W)
                     pred_uq2_map  = pred_uq2[:, :, None, None].expand(-1, -1, H, W)

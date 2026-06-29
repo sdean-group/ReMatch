@@ -18,7 +18,7 @@ from typing import Iterable, Tuple, Union
 import copy
 import importlib.util
 from pathlib import Path
-
+import numpy as np
 import torch
 
 try:
@@ -31,6 +31,7 @@ from physicsnemo.distributed import DistributedManager
 
 from third_party.datasets import base, hrrrmini, hrrrmini_ot_pre_calc, blastnet, blastnet_ot_pre_calc
 from third_party.datasets import hrrrmini_raw_lr
+from third_party.datasets.hrrrmini_time_wrapper import TimeFlagWrapper
 # this maps all known dataset types to the corresponding init function
 known_datasets = {
     "hrrr_mini": hrrrmini.HRRRMiniDataset,
@@ -155,10 +156,20 @@ def init_dataset_from_config(
     if "validation" in dataset_cfg:
         del dataset_cfg["validation"]
 
+    attach_time_flag = bool(dataset_cfg.pop("time_flag", False))
+    cutoff_time = dataset_cfg.pop("cutoff_time", "2020-01-01T00:00:00")
+
 
     dataset_init_func = known_datasets[dataset_type]
     print(dataset_cfg)
     dataset_obj = dataset_init_func(**dataset_cfg)
+
+    if attach_time_flag:
+        dataset_obj = TimeFlagWrapper(
+            wrapped_dataset=dataset_obj,
+            time_source_dataset=dataset_obj,
+            cutoff_time=np.datetime64(cutoff_time, "ns"),
+        )
 
     if dataloader_cfg is None:
         dataloader_cfg = {}

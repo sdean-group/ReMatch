@@ -31,12 +31,12 @@ defaults:
 
     - generation: non_patched
 dataset:
-    data_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020.nc
-    # Path to .nc data file
-    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json
-    # data_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021.nc
+    # data_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020.nc
     # # Path to .nc data file
-    # stats_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021_stats.json
+    # stats_path: /mnt/hrrr_era5_0528/hrrr_era5_calibration_2020_stats.json
+    data_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021.nc
+    # Path to .nc data file
+    stats_path: /mnt/hrrr_era5_0528/hrrr_era5_test_2021_stats.json
     # Path to json stats file
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
