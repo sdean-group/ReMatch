@@ -62,9 +62,9 @@ generation:
     # time stamps.
     # TRY THIS OUT WITH AN EARLIER CHECKPOINT TO SEE WHETHER IT ACC IMPROVED
     io:
-        output_filename: ./outputs/hrrr_mini_east/ble_generation_files/corrdif_residual_2021_BLErditfix2allpressures_temporal_50samples.nc
-        res_ckpt_filename: /home/nvidia/projects/corrdiff_original/checkpoints/hrrr_mini_east_train/blepressures_temporal/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus
-        reg_ckpt_filename: /home/nvidia/projects/ReMatch/outputs/hrrr_era5/checkpoints/rematch_u/checkpoints_regression/CorrDiffRegressionUNet.0.3008.mdlus
+        output_filename:  <path/to/output.nc>
+        res_ckpt_filename: <path/to/checkpoint.mdlus>
+        reg_ckpt_filename: <path/to/checkpoint.mdlus>
 # Parameters for wandb logging
 wandb:
     mode: offline
