@@ -1,8 +1,0 @@
-
-type: blastnet
-data_path: /data/blastnet_momentum/blastnet_train_lr16x_z8_paired_minmax.nc
-input_group: input
-output_group: output
-variable_name: data
-input_variable_name: data
-channel_names: ["RHO", "UX", "UY", "UZ"]

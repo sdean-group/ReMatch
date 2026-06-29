@@ -37,14 +37,11 @@ defaults:
 # Modify or add below parameters that should be passed as argument to the
 # user-defined dataset class.
 dataset:
-    # data_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019.nc
-    # # Path to .nc data file
-    # stats_path: /data/corrdiff3d/hrrrmini_east_train_2018_2019_stats.json 
-
-    data_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2019.nc
+    type: hrrr_mini_raw
+    data_path:  <path/to/train_dataset.nc>
     # Path to .nc data file
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2019_stats.json 
-
+    stats_path: <path/to/train_dataset_stats.json>
+    # Path to json stats file
     # Path to json stats file
     #dont need to traiin on surface vars but keep them in the dta
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]

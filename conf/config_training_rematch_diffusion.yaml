@@ -31,8 +31,10 @@ defaults:
     - model_size: mini
     - training: ${model}
 dataset:
-    data_path: <data_path.nc>
-    stats_path: /data/hrrr_era5_0528/hrrr_era5_train_2018_2020_stats.json
+    data_path:  <path/to/train_dataset.nc>
+    # Path to .nc data file
+    stats_path: <path/to/train_dataset_stats.json>
+    # Path to json stats file
     input_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v","month_sin","month_cos","day_sin","day_cos"]
     output_variables: ["50u", "50v", "75u","75v", "100u", "100v", "125u", "125v", "150u", "150v"]
 

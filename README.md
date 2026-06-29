@@ -19,8 +19,28 @@ This project was tested with Python 3.12.3
 ```bash
 pip install -r requirements.txt
 ```
-### Dataset generation 
-You can download and generate datasets in here "repository" 
+### Dataset Generation
+
+You can download and generate the required datasets from [HRRR-ERA5-Dataset](https://github.com/NIDHI2023/HRRR-ERA5-Dataset.git).
+
+ReMatch requires three separate datasets. In our implementation, we used:
+
+- **2018–2019** for training
+- **2020** for calibration
+- **2021** for testing
+
+After generating the datasets and statistics files, update `dataset_path` and `stat_path` in the configuration files under:
+
+```bash
+ReMatch/conf
+```
+
+To run ReMatch, you also need to specify the training and calibration dataset paths in:
+
+```bash
+ReMatch/scripts/02_run_pca.sh
+```
+
 ## Training 
 ### Configuration basics
 
@@ -44,6 +64,8 @@ GPUS=0,1,2,3 NPROC=4 bash scripts/run_rematchs.sh
     - `02_run_pca.sh` - Run PCA on residual target and low resolution input. when there is no source(trainset) and target(calibration) generation nc file exists, run generation before PCA. Takes configuration file name for generation, source and target generation file name and regression type(unet or swinir) as input arguments. 
     -`03_run_ot.sh` - Run optimal transport on PCA latent space of residual targets. Takes PCA results directory, source and target generation file name as input arguments. 
     -`04_train_diffusion_from_regression.sh / 04_train_diffusion_from_dataset` - Train diffusion model using either regression model or pre-generated dataset (matched residual target). 
+  - **Run generation**:
+    - `05_traingeneration.sh` - submits generation jobs for `rematch_u` and `rematch_s` on separate GPUs. Make sure to update the checkpoint paths to match your trained checkpoints.
     
 
 - **Base Configurations**: Located in the `conf/base` directory
