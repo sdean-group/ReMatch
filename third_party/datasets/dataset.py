@@ -157,7 +157,7 @@ def init_dataset_from_config(
         del dataset_cfg["validation"]
 
     attach_time_flag = bool(dataset_cfg.pop("time_flag", False))
-    cutoff_time = dataset_cfg.pop("cutoff_time", "2020-01-01T00:00:00")
+    cutoff_time = dataset_cfg.pop("cutoff_time", "2021-01-01T00:00:00")
 
 
     dataset_init_func = known_datasets[dataset_type]

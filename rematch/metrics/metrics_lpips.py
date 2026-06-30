@@ -752,21 +752,22 @@ def save_lpips_ensemble(out_path: Path, **kwargs):
         print("---------------")
 
 
-out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/lpips")
+out = Path("/mnt/hrrr_era5_0528/experiment_result/metrics_paper/lpips_")
 os.makedirs(out, exist_ok=True)
 base_dir = Path("/mnt/hrrr_era5_0528/experiment_result")
 
 save_lpips_ensemble(
     out_path=out,
-    unet=[str(base_dir / "unet" / "600_samples.nc")],
-    cdm=[str(base_dir / "cdm" / "600_samples.nc")],
-    corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
-    corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
-    convfno=[str(base_dir / "convfno" / "600_samples.nc")],
-    swinir=[str(base_dir / "swinir" / "600_samples.nc")],
-    cfg=[str(base_dir / "cfg" / "600_samples.nc")],
-    uq_rmse_gt=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
-    uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
-    rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
+    # unet=[str(base_dir / "unet" / "600_samples.nc")],
+    # cdm=[str(base_dir / "cdm" / "600_samples.nc")],
+    # corrdiff_m=[str(base_dir / "corrdiff_m" / "600_samples.nc")],
+    # corrdiff=[str(base_dir / "corrdiff" / "600_samples.nc")],
+    # convfno=[str(base_dir / "convfno" / "600_samples.nc")],
+    # swinir=[str(base_dir / "swinir" / "600_samples.nc")],
+    # cfg=[str(base_dir / "cfg" / "600_samples.nc")],
+    # uq_rmse_gt=[str(base_dir / "uq_rmse_0625" / "600_samples.nc")],
+    # uq_quantiles_gt=[str(base_dir / "uq_quantiles_gt" / "600_samples.nc")],
+    # rematch_u=[str(base_dir / "rematch_u" / "600_samples.nc")],
     rematch_s=[str(base_dir / "rematch_s" / "600_samples.nc")],
+    rematch_s_correct=[str(base_dir / "rematch_s" / "rematchs_again_600_samples.nc")],
 )

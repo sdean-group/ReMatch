@@ -12,7 +12,7 @@ import numpy as np
 
 
 class PinballLoss():
-    # from paper's open source github
+    # from open source github
     def __init__(self, quantile=0.10, reduction='mean'):
         self.quantile = quantile
         assert 0 < self.quantile
@@ -23,7 +23,6 @@ class PinballLoss():
         #assert output.shape == target.shape
         
         error = output - target
-        #print(f"IN PINBALL ERROR SHPAE {error.shape}")
         loss = torch.zeros_like(target, dtype=torch.float)
         smaller_index = error < 0
         bigger_index = 0 < error
@@ -202,88 +201,7 @@ class RegressionLossBiasCorrector_rmse:
         # loss = err_rmse
         return loss_rmse
     
-    
-# Yujin's version      
-# class RegressionLossBiasCorrector_quantiles:
-#     """
-#     Regression loss function for the bias corrector.
-#     Predict channel-wise quantiles residual bias.
-#     Note: this loss does not apply any reduction.
-#     """
 
-#     def __init__(self, regression_net):
-#         self.regression_net = regression_net
-#         self.regression_net.eval()
-#         return
-
-#     def __call__(
-#         self,
-#         net: torch.nn.Module,
-#         img_clean: torch.Tensor,
-#         img_lr: torch.Tensor,
-#         augment_pipe: Optional[
-#             Callable[[torch.Tensor], Tuple[torch.Tensor, Optional[torch.Tensor]]]
-#         ] = None,
-#         lead_time_label: Optional[torch.Tensor] = None,
-#         alpha=0.1
-#     ) -> torch.Tensor:
-
-#         B, C, H, W = img_clean.shape
-
-#         img_tot = torch.cat((torch.zeros_like(img_clean), img_lr), dim=1)
-#         y_tot, augment_labels = (
-#             augment_pipe(img_tot) if augment_pipe is not None else (img_tot, None)
-#         )
-#         y = y_tot[:, :C, :, :]
-
-#         with torch.no_grad():
-#             img_mean = self.regression_net(
-#                 torch.zeros_like(y, device=img_clean.device),
-#                 img_lr,
-#                 augment_labels=augment_labels,
-#             )
-
-#         gt_bias = img_clean - img_mean  # (B, C, H, W)
-#         gt_bias_flat = gt_bias.flatten(start_dim=2)
-
-#         gt_qlow  = torch.quantile(gt_bias_flat, alpha / 2, dim=2)
-#         gt_qhigh = torch.quantile(gt_bias_flat, 1 - alpha / 2, dim=2)
-
-    
-#         img_tot = torch.cat((gt_bias, img_lr, img_mean), dim=1)
-#         y_tot, augment_labels = (
-#             augment_pipe(img_tot) if augment_pipe is not None else (img_tot, None)
-#         )
-#         y = y_tot[:, :img_clean.shape[1], :, :]
-#         y_conditioned = y_tot[:, img_clean.shape[1]:, :, :]
-
-#         zero_input = torch.zeros((B, 2 * C, H, W), device=img_clean.device)
-
-#         pred_bias = net(
-#             zero_input,
-#             y_conditioned,
-#             force_fp32=False,
-#             augment_labels=augment_labels,
-#         )
-
-#         pred_vec = F.adaptive_avg_pool2d(pred_bias, 1)
-#         pred_vec = pred_vec.squeeze(-1).squeeze(-1)
-#         pred_vec = pred_vec.view(B, C, 2)
-
-#         pred_center = pred_vec[..., 0]
-#         pred_width = F.softplus(pred_vec[..., 1]) + 1e-6
-
-#         pred_qlow = pred_center - pred_width
-#         pred_qhigh = pred_center + pred_width
-
-#         err_qlow = (pred_qlow - gt_qlow) ** 2
-#         err_qhigh = (pred_qhigh - gt_qhigh) ** 2
-
-#         loss = err_qlow.mean(dim=1) + err_qhigh.mean(dim=1)
-
-#         return loss
-
-# Nidhi's version
 class RegressionLossBiasCorrector_quantiles:
     """
     Regression loss function for the bias corrector.
@@ -328,9 +246,7 @@ class RegressionLossBiasCorrector_quantiles:
 
         gt_bias = (img_clean - img_mean).view(B, C, -1)  # (B, C, H, W) -> (B,C, H*W)
 
-        # X (LATENT STATE) NEEDS TO BE SAME AS MODEL OUTPUT, WHICH IS 2*C_OUT AND NO H,W DIMS
         x = torch.zeros(B, 2*C, H, W, device=img_clean.device) 
-        #print(f"in loss, latent x shape is {x.shape}")
         if self.hr_mean_conditioning:
             y_lr_res = torch.cat((y_lr_res, img_mean), dim=1)
             
@@ -374,7 +290,6 @@ class ResidualLossBiasCorrector_quantiles(ResidualLoss):
         self.bias_net.eval()
         self.regression_net = regression_net
         self.regression_net.eval()
-        # self.loss_fn_alex = lpips.LPIPS(net='alex').to(regression_net.device)
         self.hr_mean_conditioning = hr_mean_conditioning
 
 
@@ -392,12 +307,6 @@ class ResidualLossBiasCorrector_quantiles(ResidualLoss):
         pred_vec = F.adaptive_avg_pool2d(pred_bias, 1)
         pred_vec = pred_vec.squeeze(-1).squeeze(-1)
         pred_vec = pred_vec.view(B, C, 2)
-
-        # pred_center = pred_vec[..., 0]
-        # pred_width = F.softplus(pred_vec[..., 1]) + 1e-6
-
-        # pred_qlow = pred_center - pred_width
-        # pred_qhigh = pred_center + pred_width
 
         pred_qlow = pred_vec[...,0]
         delta = pred_vec[..., 1]
@@ -451,14 +360,8 @@ class ResidualLossBiasCorrector_quantiles(ResidualLoss):
         if time_flag is not None:
             mask = time_flag[:, None].float()
             # GT mask for 2018-2019
-            # pred_qlow = gt_qlow * (1-mask) + pred_qlow * mask
-            # pred_qhigh  = gt_qhigh * (1-mask) + pred_qhigh * mask
-
-            # zero mask
-            pred_qlow = pred_qlow * mask
-            pred_qhigh  = pred_qhigh * mask
-        
-        
+            pred_qlow = gt_qlow * (1-mask) + pred_qlow * mask
+            pred_qhigh  = gt_qhigh * (1-mask) + pred_qhigh * mask
 
         self.y_mean = y_mean
 
@@ -671,122 +574,6 @@ def bias_correction_step(
 
     return upsampled_x, pred_rmse, pred_q90
 
-
-class VerifierLossQuantileScalar():
-    def __init__(
-        self,
-        regression_net: torch.nn.Module,
-        hr_mean_conditioning: bool = True,
-        alpha = 0.1, # experimental default from paper
-        delta = 0.1
-    ):
-        
-        self.regression_net = regression_net
-        self.regression_net.eval()
-        self.hr_mean_conditioning = hr_mean_conditioning
-        self.y_mean = None
-        self.alpha = alpha
-        self.delta = delta
-
-    def __call__(
-        self,
-        net: torch.nn.Module,
-        img_clean: torch.Tensor,
-        img_lr: torch.Tensor,
-        augment_pipe: Optional[
-            Callable[[torch.Tensor], Tuple[torch.Tensor, Optional[torch.Tensor]]]
-        ] = None,
-        lead_time_label: Optional[torch.Tensor] = None,
-        use_patch_grad_acc: bool = False,
-    ) -> torch.Tensor:
-        
-        # augment for conditional generation
-        img_tot = torch.cat((img_clean, img_lr), dim=1)
-        y_tot, augment_labels = (
-            augment_pipe(img_tot) if augment_pipe is not None else (img_tot, None)
-        )
-        B,C,H,W = img_clean.shape # 64, 10, 168, 168
-        # y is indexing the img_clean from the concatenated img_tot
-        y = y_tot[:, : img_clean.shape[1], :, :] # GT
-        # this is indexing the img_lr columns from dim 1
-        y_lr = y_tot[:, img_clean.shape[1] :, :, :] # Low res ERA5
-        y_lr_res = y_lr
-        # if using multi-iterations of patching, switch to optimized version
-        with torch.no_grad():
-            if use_patch_grad_acc:
-                # form residual
-                if self.y_mean is None:
-                    if lead_time_label is not None:
-                        y_mean = self.regression_net(
-                            torch.zeros_like(y, device=img_clean.device),
-                            y_lr_res,
-                            lead_time_label=lead_time_label,
-                            augment_labels=augment_labels,
-                        )
-                    else:
-                        y_mean = self.regression_net(
-                            torch.zeros_like(y, device=img_clean.device),
-                            y_lr_res,
-                            augment_labels=augment_labels,
-                        )
-                    self.y_mean = y_mean
-
-            # if on full domain, or if using patching without multi-iterations
-            else:
-                # form residual
-                if lead_time_label is not None:
-                    y_mean = self.regression_net(
-                        torch.zeros_like(y, device=img_clean.device),
-                        y_lr_res,
-                        lead_time_label=lead_time_label,
-                        augment_labels=augment_labels,
-                    )
-                else:
-                    y_mean = self.regression_net(
-                        torch.zeros_like(y, device=img_clean.device),
-                        y_lr_res,
-                        augment_labels=augment_labels,
-                    )
-
-            f_hat = y_mean # 64,10,168,168
-        
-        gt_bias = (img_clean - f_hat).view(B, C, -1)
-        #print(f"GT BIAS IS {gt_bias.shape}")
-        # gt_q_low  = torch.quantile(gt_bias, self.alpha, dim=2)
-        # gt_q_high = torch.quantile(gt_bias, 1-self.alpha, dim=2)
-
-        # X (LATENT STATE) NEEDS TO BE SAME AS MODEL OUTPUT, WHICH IS 2*C_OUT AND NO H,W DIMS
-        x = torch.zeros(B, 2*C, H, W, device=img_clean.device) 
-        #print(f"in loss, latent x shape is {x.shape}")
-        if self.hr_mean_conditioning:
-            y_lr_res = torch.cat((y_lr_res, f_hat), dim=1)
-            
-        out = net(x,
-                    y_lr_res,
-                    lead_time_label=lead_time_label,
-                    augment_labels=augment_labels,) # is 64,20,168,168
-        # pool output together to reduce dims
-        pred_vec = F.adaptive_avg_pool2d(out, 1)   # (B, 2C, 1, 1)
-        pred_vec = pred_vec.squeeze(-1).squeeze(-1)  # (B, 2C)
-        pred_vec = pred_vec.view(B, C, 2)            # (B, C, 2)
-
-        q_low  = pred_vec[..., 0]
-        delta  = pred_vec[..., 1]
-        q_high = q_low + F.softplus(delta) # to ensure interval is nonnegative, the model essentially learns to output q_low and delta
-        #print(f"TEST QUANTILES??? {q_low, q_high}")
-        #print(f"SHAPES {q_low.shape}, {q_high.shape}")
-        pinball_low  = PinballLoss(self.alpha / 2, reduction='none')
-        pinball_high = PinballLoss(1 - self.alpha / 2, reduction='none')
-
-        loss_low  = pinball_low(q_low.unsqueeze(-1), gt_bias)
-        loss_high = pinball_high(q_high.unsqueeze(-1), gt_bias)
-        # losses are now  B,C,H*W
-
-        #print(f"METRICS\n ordering{(q_high >= q_low).float().mean()}\n asymmetry {(q_high + q_low).abs().mean()}\n accruacy {(q_low - gt_q_low).abs().mean()}, {(q_high - gt_q_high).abs().mean()}")
-
-        return loss_low.mean(dim=2) + loss_high.mean(dim=2)
-  
- 
 
 def upsample(x, H, W):
     """Extend x around edges with linear extrapolation."""
