@@ -1,4 +1,3 @@
-from tkinter.constants import X
 from third_party.datasets.hrrrmini import HRRRMiniDataset
 from typing import Union, List
 import numpy as np

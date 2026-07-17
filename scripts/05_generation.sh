@@ -66,24 +66,24 @@ run_generate_rematchu () {
     echo $!
 }
 
-PID_REMATCH_S=$(run_generate_rematchs \
-    "rematch_s" \
-    "0" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_regression/swinir_step_00100000.pt" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-    "/mnt/hrrr_era5_0528/experiment_result/rematch_s")
+# PID_REMATCH_S=$(run_generate_rematchs \
+#     "rematch_s" \
+#     "0" \
+#     "/home/ubuntu/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_regression/swinir_step_00100000.pt" \
+#     "/home/ubuntu/projects/ReMatch/outputs/checkpoints/rematch_s/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+#     "/data/hrrr_era5_east/experiment_result/rematch_s")
 
 PID_REMATCH_U=$(run_generate_rematchu \
     "rematch_u" \
-    "1" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
-    "/home/nvidia/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
-    "/mnt/hrrr_era5_0528/experiment_result/rematch_u_again")
+    "0" \
+    "/home/ubuntu/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_regression/UNet.0.8000000.mdlus" \
+    "/home/ubuntu/projects/ReMatch/outputs/checkpoints/rematch_u/checkpoints_diffusion/EDMPrecondSuperResolution.0.8000000.mdlus" \
+    "/data/hrrr_era5_east/experiment_result/rematch_u")
 
 echo "Started jobs:"
 echo "  rematch_u PID=${PID_REMATCH_U}"
-echo "  rematch_s PID=${PID_REMATCH_S}"
+# echo "  rematch_s PID=${PID_REMATCH_S}"
 
-wait "${PID_REMATCH_U}"
-wait "${PID_REMATCH_S}"
+# wait "${PID_REMATCH_U}"
+# wait "${PID_REMATCH_S}"
 echo "All generation jobs completed."
